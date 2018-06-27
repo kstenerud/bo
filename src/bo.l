@@ -22,6 +22,8 @@ VALUE_HEX     [-+]?[0-9a-fA-F]+
 VALUE_NUMBER  [-+]?[0-9]*\.?[0-9]*([eE][-+]?[0-9]+)?
 WIDTH         1|2|4|8|16
 NUMERIC_TYPE  [ihobfd]
+ENDIAN        l|b
+U_INT         [0-9]+
 
 %%
 
@@ -38,7 +40,31 @@ NUMERIC_TYPE  [ihobfd]
     return BAD_DATA;
 }
 
-i{NUMERIC_TYPE}{WIDTH} { yylval->string_v = yytext+1; return INPUT_TYPE; }
+i{NUMERIC_TYPE}{WIDTH}{ENDIAN} { yylval->string_v = yytext+1; return INPUT_TYPE; }
+
+o{NUMERIC_TYPE}{WIDTH}{ENDIAN}{U_INT} { yylval->string_v = yytext+1; return OUTPUT_TYPE; }
+
+p{VALUE_STRING} {
+    const char* bad_data_loc = bo_unescape_string(yytext + 1);
+    if(bad_data_loc == NULL)
+    {
+        yylval->string_v = yytext;
+        return PREFIX;
+    }
+    yylval->string_v = bad_data_loc;
+    return BAD_DATA;
+}
+
+s{VALUE_STRING} {
+    const char* bad_data_loc = bo_unescape_string(yytext + 1);
+    if(bad_data_loc == NULL)
+    {
+        yylval->string_v = yytext;
+        return SUFFIX;
+    }
+    yylval->string_v = bad_data_loc;
+    return BAD_DATA;
+}
 
 . { yylval->string_v = yytext; return UNEXPECTED; }
 
@@ -70,7 +96,7 @@ int bo_process_string(const char* input, char* output, int output_length, bo_con
     return context.output_buffer.pos - context.output_buffer.start;
 }
 
-void yyerror(const void const *scanner, bo_context* context, const char* const msg)
+void yyerror(const void const *scanner __attribute__((unused)), bo_context* context, const char* const msg)
 {
-    fprintf(stderr, "%s\n", msg);
+    context->config->on_error("%s", msg);
 }

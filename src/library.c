@@ -326,13 +326,28 @@ void bo_finish(bo_context* context)
     bo_free_buffer(&context->work_buffer);
 }
 
-bool bo_set_data_type(bo_context* context, const char* string_value)
+bool bo_set_input_type(bo_context* context, const char* string_value)
 {
     context->data_type = *string_value++;
     int width = strtol(string_value, NULL, 10);
     // TODO: Check width
     context->data_width = width;
     return true;
+}
+
+bool bo_set_output_type(bo_context* context, const char* string_value)
+{
+	return true;
+}
+
+bool bo_set_prefix(bo_context* context, const char* string_value)
+{
+	return true;
+}
+
+bool bo_set_suffix(bo_context* context, const char* string_value)
+{
+	return true;
 }
 
 bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, bo_config* config)

@@ -43,7 +43,10 @@ bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_leng
 
 bool bo_on_string(bo_context* context, const char* string);
 bool bo_on_number(bo_context* context, const char* string_value);
-bool bo_set_data_type(bo_context* context, const char* string_value);
+bool bo_set_input_type(bo_context* context, const char* string_value);
+bool bo_set_output_type(bo_context* context, const char* string_value);
+bool bo_set_prefix(bo_context* context, const char* string_value);
+bool bo_set_suffix(bo_context* context, const char* string_value);
 
 void bo_finish(bo_context* context);
 
