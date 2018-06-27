@@ -6,39 +6,7 @@ extern "C" {
 
 #include <stdlib.h>
 
-
-typedef enum
-{
-    TYPE_NONE    = 0,
-    TYPE_INT     = 'i',
-    TYPE_HEX     = 'h',
-    TYPE_OCTAL   = 'o',
-    TYPE_BOOLEAN = 'b',
-    TYPE_FLOAT   = 'f',
-    TYPE_DECIMAL = 'd',
-    TYPE_STRING  = 's',
-} bo_data_type;
-
-typedef enum
-{
-    BO_ENDIAN_LITTLE = 0,
-    BO_ENDIAN_BIG = 1,
-} bo_endianness;
-
-typedef struct
-{
-	struct
-	{
-	    bo_data_type data_type;
-    	int data_width;
-    	int text_width;
-    	int precision;
-    	const char* prefix;
-    	const char* suffix;
-    	bo_endianness endianness;
-    } output;
-    void (*on_error)(const char* fmt, ...);
-} bo_config;
+typedef void (*error_callback)(const char* fmt, ...);
 
 const char* bo_version();
 
@@ -46,7 +14,7 @@ const char* bo_version();
  * Escapes a string in-place (modifies the original string).
  *
  * @param str The string to escape (this string may get modified).
- * @return NULL if successful. On failure, a pointer to the offending escape sequence in the string.
+ * @return pointer to the offending character on failure, pointer to the end of the string (\0) on success.
  */
 char* bo_unescape_string(char* str);
 
@@ -59,7 +27,7 @@ char* bo_unescape_string(char* str);
  * @param config The configuration to use.
  * @return The number of bytes written to the output buffer, or -1 if an error occurred.
  */
-int bo_process_string(const char* input, char* output, int output_length, bo_config* config);
+int bo_process_string(const char* input, char* output, int output_length, error_callback on_error);
 
 
 #ifdef __cplusplus

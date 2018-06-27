@@ -21,7 +21,7 @@ DEFINE_SAFE_STRUCT(safe_decimal_8,  _Decimal64);
 DEFINE_SAFE_STRUCT(safe_decimal_16, _Decimal128);
 
 #define DEFINE_INT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static void string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width, int precision __attribute__((unused))) \
+static void string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width) \
 { \
 	sprintf(dst, "%0*" #FORMAT, text_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
 }
@@ -42,9 +42,9 @@ DEFINE_INT_STRING_PRINTER(octal, uint, 8, lo)
 // TODO: octal-16
 
 #define DEFINE_FLOAT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static void string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width, int precision) \
+static void string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width) \
 { \
-		sprintf(dst, "%0*.*" #FORMAT, text_width, precision, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+		sprintf(dst, "%.*" #FORMAT, text_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
 }
 // TODO: float-2
 DEFINE_FLOAT_STRING_PRINTER(float, float, 4, f)
@@ -53,15 +53,15 @@ DEFINE_FLOAT_STRING_PRINTER(float, float, 8, f)
 // TODO: decimal-8
 // TODO: decimal-16
 
-typedef void (*string_printer)(uint8_t* src, char* dst, int text_width, int precision);
+typedef void (*string_printer)(uint8_t* src, char* dst, int text_width);
 
 static string_printer get_string_printer(bo_context* context)
 {
-	switch(context->config->output.data_type)
+	switch(context->output.data_type)
 	{
 	    case TYPE_INT:
 	    {
-	    	switch(context->config->output.data_width)
+	    	switch(context->output.data_width)
 	    	{
 	    		case 1: return string_print_int_1;
 	    		case 2: return string_print_int_2;
@@ -77,7 +77,7 @@ static string_printer get_string_printer(bo_context* context)
 	    }
 	    case TYPE_HEX:
 	    {
-	    	switch(context->config->output.data_width)
+	    	switch(context->output.data_width)
 	    	{
 	    		case 1: return string_print_hex_1;
 	    		case 2: return string_print_hex_2;
@@ -93,7 +93,7 @@ static string_printer get_string_printer(bo_context* context)
 	    }
     	case TYPE_OCTAL:
 	    {
-	    	switch(context->config->output.data_width)
+	    	switch(context->output.data_width)
 	    	{
 	    		case 1: return string_print_octal_1;
 	    		case 2: return string_print_octal_2;
@@ -112,7 +112,7 @@ static string_printer get_string_printer(bo_context* context)
     		return NULL;
     	case TYPE_FLOAT:
     	{
-	    	switch(context->config->output.data_width)
+	    	switch(context->output.data_width)
 	    	{
 	    		case 2:
 	    			// TODO
@@ -141,11 +141,18 @@ static string_printer get_string_printer(bo_context* context)
 static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* dst, int dst_length)
 {
 	char buffer[100];
-	strcpy(buffer, context->config->output.prefix);
+	if(context->output.prefix != NULL)
+	{
+		strcpy(buffer, context->output.prefix);
+	}
+	else
+	{
+		buffer[0] = 0;
+	}
 	char* const buffer_ptr = buffer + strlen(buffer);
 
 	const uint8_t* const dst_end = dst + dst_length;
-	int bytes_per_entry = context->config->output.data_width;
+	int bytes_per_entry = context->output.data_width;
 	string_printer string_print = get_string_printer(context);
 	if(string_print == NULL)
 	{
@@ -156,11 +163,11 @@ static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* ds
     for(int i = 0; i < src_length; i += bytes_per_entry)
     {
     	// TODO: Make sure there's enough data to print!
-    	string_print(src+i, buffer_ptr, context->config->output.text_width, context->config->output.precision);
+    	string_print(src+i, buffer_ptr, context->output.text_width);
     	char* buffer_pos = buffer_ptr + strlen(buffer_ptr);
-        if(i < src_length - bytes_per_entry)
+        if(i < src_length - bytes_per_entry && context->output.suffix != NULL)
         {
-	    	strcpy(buffer_pos, context->config->output.suffix);
+	    	strcpy(buffer_pos, context->output.suffix);
 	    }
 	    int entry_length = strlen(buffer);
 	    if(dst_pos + entry_length >= dst_end)
@@ -218,7 +225,7 @@ static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
 
 static bool add_int(bo_context* context, int64_t src_value)
 {
-    switch(context->data_width)
+    switch(context->input.data_width)
     {
         case WIDTH_1:
         {
@@ -241,14 +248,14 @@ static bool add_int(bo_context* context, int64_t src_value)
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         default:
-		    context->config->on_error("Unhandled type/width");
+		    context->on_error("Unhandled type/width");
 		    return false;
     }
 }
 
 static bool add_float(bo_context* context, double src_value)
 {
-    switch(context->data_width)
+    switch(context->input.data_width)
     {
         case WIDTH_4:
         {
@@ -261,7 +268,7 @@ static bool add_float(bo_context* context, double src_value)
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         default:
-		    context->config->on_error("Unhandled type/width");
+		    context->on_error("Unhandled type/width");
 		    return false;
     }
 }
@@ -300,12 +307,12 @@ bool bo_on_string(bo_context* context, const char* string)
 
 bool bo_on_number(bo_context* context, const char* string_value)
 {
-    switch(context->data_type)
+    switch(context->input.data_type)
     {
         case TYPE_FLOAT:
             return add_float(context, strtod(string_value, NULL));
         case TYPE_DECIMAL:
-            context->config->on_error("Unhandled type: %s", string_value);
+            context->on_error("Unhandled type: %s", string_value);
             return true;
         case TYPE_INT:
             return add_int(context, strtoll(string_value, NULL, 10));
@@ -324,37 +331,59 @@ void bo_finish(bo_context* context)
 {
     flush_buffer(context);
     bo_free_buffer(&context->work_buffer);
+	if(context->output.prefix != NULL)
+	{
+		free((void*)context->output.prefix);
+	}
+	if(context->output.suffix != NULL)
+	{
+		free((void*)context->output.suffix);
+	}
 }
 
 bool bo_set_input_type(bo_context* context, const char* string_value)
 {
-    context->data_type = *string_value++;
-    int width = strtol(string_value, NULL, 10);
-    // TODO: Check width
-    context->data_width = width;
+    context->input.data_type = *string_value++;
+    context->input.data_width = strtol(string_value, NULL, 10);;
+    string_value += context->input.data_width >= 10 ? 2 : 1;
+    context->input.endianness = *string_value;
     return true;
 }
 
 bool bo_set_output_type(bo_context* context, const char* string_value)
 {
+    context->output.data_type = *string_value++;
+    context->output.data_width = strtol(string_value, NULL, 10);;
+    string_value += context->output.data_width >= 10 ? 2 : 1;
+    context->output.endianness = *string_value++;
+    context->output.text_width = strtol(string_value, NULL, 10);;
 	return true;
 }
 
 bool bo_set_prefix(bo_context* context, const char* string_value)
 {
+	if(context->output.prefix != NULL)
+	{
+		free((void*)context->output.prefix);
+	}
+	context->output.prefix = strdup(string_value);
 	return true;
 }
 
 bool bo_set_suffix(bo_context* context, const char* string_value)
 {
+	if(context->output.suffix != NULL)
+	{
+		free((void*)context->output.suffix);
+	}
+	context->output.suffix = strdup(string_value);
 	return true;
 }
 
-bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, bo_config* config)
+bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, error_callback on_error)
 {
 	bo_context context =
 	{
-        .data_type = TYPE_NONE,
         .work_buffer = bo_new_buffer(work_buffer_size),
         .output_buffer =
         {
@@ -362,7 +391,21 @@ bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_leng
         	.pos = output,
         	.end = output + output_length,
         },
-        .config = config,
+        .input =
+        {
+        	.data_type = TYPE_NONE,
+        	.data_width = 0,
+        },
+        .output =
+        {
+        	.data_type = TYPE_NONE,
+        	.data_width = 0,
+        	.text_width = 0,
+        	.prefix = NULL,
+        	.suffix = NULL,
+        	.endianness = BO_ENDIAN_LITTLE,
+        },
+        .on_error = on_error,
 	};
 	return context;
 }
@@ -392,8 +435,15 @@ char* bo_unescape_string(char* str)
                 case '4': case '5': case '6': case '7':
                 case '8': case '9': case 'a': case 'b':
                 case 'c': case 'd': case 'e': case 'f':
-                    // TODO
+                {
+                	char oldch = read_pos[2];
+                	read_pos[2] = 0;
+                    unsigned int decoded = strtoul(read_pos, NULL, 16);
+                    read_pos[2] = oldch;
+                    read_pos += 2;
+                    *write_pos++ = decoded;
                     break;
+                }
                 case 'u':
                 {
                     if(read_pos + 4 > end_pos)
@@ -431,5 +481,5 @@ char* bo_unescape_string(char* str)
         }
     }
     *write_pos = 0;
-    return NULL;
+    return write_pos;
 }

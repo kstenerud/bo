@@ -15,6 +15,24 @@ extern "C" {
 
 typedef enum
 {
+    TYPE_NONE    = 0,
+    TYPE_INT     = 'i',
+    TYPE_HEX     = 'h',
+    TYPE_OCTAL   = 'o',
+    TYPE_BOOLEAN = 'b',
+    TYPE_FLOAT   = 'f',
+    TYPE_DECIMAL = 'd',
+    TYPE_STRING  = 's',
+} bo_data_type;
+
+typedef enum
+{
+    BO_ENDIAN_LITTLE = 'l',
+    BO_ENDIAN_BIG = 'b',
+} bo_endianness;
+
+typedef enum
+{
     WIDTH_1  =  1,
     WIDTH_2  =  2,
     WIDTH_4  =  4,
@@ -31,15 +49,28 @@ typedef struct
 
 typedef struct
 {
-    bo_data_type data_type;
-    bo_data_width data_width;
     bo_buffer work_buffer;
     bo_buffer output_buffer;
-    bo_config* config;
+    struct
+    {
+        bo_data_type data_type;
+        bo_data_width data_width;
+        bo_endianness endianness;
+    } input;
+    struct
+    {
+        bo_data_type data_type;
+        int data_width;
+        int text_width;
+        const char* prefix;
+        const char* suffix;
+        bo_endianness endianness;
+    } output;
+    error_callback on_error;
 } bo_context;
 
 
-bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, bo_config* config);
+bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, error_callback on_error);
 
 bool bo_on_string(bo_context* context, const char* string);
 bool bo_on_number(bo_context* context, const char* string_value);

@@ -3,6 +3,8 @@
 #include "bo_internal.h"
 #include "parser.h"
 
+static char* unescape_unquote_string(char* str);
+
 %}
 
 %option 8bit
@@ -30,14 +32,8 @@ U_INT         [0-9]+
 {WHITESPACE}    {/* Ignored */}
 {VALUE_NUMBER}|{VALUE_HEX} { yylval->string_v = yytext; return NUMBER; }
 {VALUE_STRING} {
-    const char* bad_data_loc = bo_unescape_string(yytext);
-    if(bad_data_loc == NULL)
-    {
-        yylval->string_v = yytext;
-        return STRING;
-    }
-    yylval->string_v = bad_data_loc;
-    return BAD_DATA;
+    yylval->string_v = unescape_unquote_string(yytext);
+    return (yylval->string_v == yytext + 1) ? STRING : BAD_DATA;
 }
 
 i{NUMERIC_TYPE}{WIDTH}{ENDIAN} { yylval->string_v = yytext+1; return INPUT_TYPE; }
@@ -45,25 +41,13 @@ i{NUMERIC_TYPE}{WIDTH}{ENDIAN} { yylval->string_v = yytext+1; return INPUT_TYPE;
 o{NUMERIC_TYPE}{WIDTH}{ENDIAN}{U_INT} { yylval->string_v = yytext+1; return OUTPUT_TYPE; }
 
 p{VALUE_STRING} {
-    const char* bad_data_loc = bo_unescape_string(yytext + 1);
-    if(bad_data_loc == NULL)
-    {
-        yylval->string_v = yytext;
-        return PREFIX;
-    }
-    yylval->string_v = bad_data_loc;
-    return BAD_DATA;
+    yylval->string_v = unescape_unquote_string(yytext + 1);
+    return (yylval->string_v == yytext + 2) ? PREFIX : BAD_DATA;
 }
 
 s{VALUE_STRING} {
-    const char* bad_data_loc = bo_unescape_string(yytext + 1);
-    if(bad_data_loc == NULL)
-    {
-        yylval->string_v = yytext;
-        return SUFFIX;
-    }
-    yylval->string_v = bad_data_loc;
-    return BAD_DATA;
+    yylval->string_v = unescape_unquote_string(yytext + 1);
+    return (yylval->string_v == yytext + 2) ? SUFFIX : BAD_DATA;
 }
 
 . { yylval->string_v = yytext; return UNEXPECTED; }
@@ -71,25 +55,36 @@ s{VALUE_STRING} {
 %%
 
 
-int bo_process_string(const char* input, char* output, int output_length, bo_config* config)
+static char* unescape_unquote_string(char* str)
 {
+    char* maybe_bad_data_loc = bo_unescape_string(str);
+    if(*maybe_bad_data_loc == '\0')
+    {
+        maybe_bad_data_loc[-1] = 0;
+        return str + 1;
+    }
+    return maybe_bad_data_loc;
+}
+
+int bo_process_string(const char* input, char* output, int output_length, error_callback on_error)
+{
+    static const int work_buffer_size = 1600;
+    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, output_length, on_error);
     yyscan_t scanner;
     if(yylex_init(&scanner) != 0)
     {
-        config->on_error("Could not init scanner");
+        context.on_error("Could not init scanner");
         return -1;
     }
 
-    static const int work_buffer_size = 1600;
     yy_scan_string(input, scanner);
-    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, output_length, config);
     bool was_successful = yyparse(scanner, &context) == 0;
     bo_finish(&context);
     yylex_destroy(scanner);
 
     if(!was_successful)
     {
-        config->on_error("Failed to parse");
+        context.on_error("Failed to parse");
         return -1;
     }
 
@@ -98,5 +93,5 @@ int bo_process_string(const char* input, char* output, int output_length, bo_con
 
 void yyerror(const void const *scanner __attribute__((unused)), bo_context* context, const char* const msg)
 {
-    context->config->on_error("%s", msg);
+    context->on_error("%s", msg);
 }
