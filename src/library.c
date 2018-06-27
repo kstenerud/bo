@@ -21,9 +21,9 @@ DEFINE_SAFE_STRUCT(safe_decimal_8,  _Decimal64);
 DEFINE_SAFE_STRUCT(safe_decimal_16, _Decimal128);
 
 #define DEFINE_INT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static void string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width) \
 { \
-	sprintf(dst, "%0*" #FORMAT, text_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+	return sprintf(dst, "%0*" #FORMAT, text_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
 }
 DEFINE_INT_STRING_PRINTER(int, int, 1, d)
 DEFINE_INT_STRING_PRINTER(int, int, 2, d)
@@ -42,9 +42,9 @@ DEFINE_INT_STRING_PRINTER(octal, uint, 8, lo)
 // TODO: octal-16
 
 #define DEFINE_FLOAT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static void string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width) \
 { \
-		sprintf(dst, "%.*" #FORMAT, text_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+	return sprintf(dst, "%.*" #FORMAT, text_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
 }
 // TODO: float-2
 DEFINE_FLOAT_STRING_PRINTER(float, float, 4, f)
@@ -53,7 +53,7 @@ DEFINE_FLOAT_STRING_PRINTER(float, float, 8, f)
 // TODO: decimal-8
 // TODO: decimal-16
 
-typedef void (*string_printer)(uint8_t* src, char* dst, int text_width);
+typedef int (*string_printer)(uint8_t* src, char* dst, int text_width);
 
 static string_printer get_string_printer(bo_context* context)
 {
@@ -68,8 +68,7 @@ static string_printer get_string_printer(bo_context* context)
 	    		case 4: return string_print_int_4;
 	    		case 8: return string_print_int_8;
 	    		case 16:
-	    			// TODO: Implement this
-	    			context->on_error("Not Implemented: INT 16");
+	    			context->on_error("TODO: INT 16 not implemented");
 	    			return NULL;
 	    		default:
 	    			context->on_error("%d: invalid data width", context->output.data_width);
@@ -85,8 +84,7 @@ static string_printer get_string_printer(bo_context* context)
 	    		case 4: return string_print_hex_4;
 	    		case 8: return string_print_hex_8;
 	    		case 16:
-	    			// TODO: Implement this
-	    			context->on_error("Not Implemented: HEX 16");
+	    			context->on_error("TODO: HEX 16 not implemented");
 	    			return NULL;
 	    		default:
 	    			context->on_error("%d: invalid data width", context->output.data_width);
@@ -102,8 +100,7 @@ static string_printer get_string_printer(bo_context* context)
 	    		case 4: return string_print_octal_4;
 	    		case 8: return string_print_octal_8;
 	    		case 16:
-	    			// TODO: Implement this
-	    			context->on_error("Not Implemented: OCTAL 16");
+	    			context->on_error("TODO: OCTAL 16 not implemented");
 	    			return NULL;
 	    		default:
 	    			context->on_error("%d: invalid data width", context->output.data_width);
@@ -111,22 +108,19 @@ static string_printer get_string_printer(bo_context* context)
 	    	}
 	    }
     	case TYPE_BOOLEAN:
-			// TODO: Implement this
-			context->on_error("Not Implemented: BOOLEAN");
+			context->on_error("TODO: BOOLEAN not implemented");
     		return NULL;
     	case TYPE_FLOAT:
     	{
 	    	switch(context->output.data_width)
 	    	{
 	    		case 2:
-	    			// TODO: Implement this
-	    			context->on_error("Not Implemented: FLOAT 2");
+	    			context->on_error("TODO: FLOAT 2not implemented");
 	    			return NULL;
 	    		case 4: return string_print_float_4;
 	    		case 8: return string_print_float_8;
 	    		case 16:
-	    			// TODO: Implement this
-	    			context->on_error("Not Implemented: FLOAT 16");
+	    			context->on_error("TODO: FLOAT 16 not implemented");
 	    			return NULL;
 	    		default:
 	    			context->on_error("%d: invalid data width", context->output.data_width);
@@ -134,8 +128,7 @@ static string_printer get_string_printer(bo_context* context)
 	    	}
 	    }
     	case TYPE_DECIMAL:
-			// TODO: Implement this
-			context->on_error("Not Implemented: DECIMAL");
+			context->on_error("TODO: DECIMAL not implemented");
     		return NULL;
     	case TYPE_STRING:
 			context->on_error("\"String\" is not a valid output format");
@@ -147,6 +140,18 @@ static string_printer get_string_printer(bo_context* context)
 
 static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* dst, int dst_length)
 {
+	if(src_length > dst_length)
+	{
+		context->on_error("Internal Error: src_length (%d) > dst_length (%d)", src_length, dst_length);
+		return -1;
+	}
+
+	if(context->output.data_type == TYPE_BINARY)
+	{
+		memcpy(dst, src, src_length);
+		return src_length;
+	}
+
 	char buffer[100];
 	if(context->output.prefix != NULL)
 	{
@@ -156,29 +161,37 @@ static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* ds
 	{
 		buffer[0] = 0;
 	}
-	char* const buffer_ptr = buffer + strlen(buffer);
+	char* const buffer_start = buffer + strlen(buffer);
 
 	const uint8_t* const dst_end = dst + dst_length;
 	int bytes_per_entry = context->output.data_width;
 	string_printer string_print = get_string_printer(context);
 	if(string_print == NULL)
 	{
+		// Assume string_print() reported the error.
 		return -1;
 	}
 
 	uint8_t* dst_pos = dst;
     for(int i = 0; i < src_length; i += bytes_per_entry)
     {
-    	// TODO: Make sure there's enough data to print!
-    	string_print(src+i, buffer_ptr, context->output.text_width);
-    	char* buffer_pos = buffer_ptr + strlen(buffer_ptr);
+    	// TODO: Make sure there's enough data to print the minimum bytes per entry!
+    	int bytes_written = string_print(src+i, buffer_start, context->output.text_width);
+    	if(bytes_written < 0)
+    	{
+    		context->on_error("Error writing string value");
+    		return -1;
+    	}
+    	char* buffer_pos = buffer_start + bytes_written;
         if(i < src_length - bytes_per_entry && context->output.suffix != NULL)
         {
 	    	strcpy(buffer_pos, context->output.suffix);
+	    	buffer_pos += strlen(buffer_pos);
 	    }
-	    int entry_length = strlen(buffer);
+	    int entry_length = buffer_pos - buffer;
 	    if(dst_pos + entry_length >= dst_end)
 	    {
+    		context->on_error("Not enough room to write entry");
 	    	return -1;
 	    }
 	    memcpy(dst_pos, buffer, entry_length + 1);
@@ -200,6 +213,7 @@ static bool flush_buffer(bo_context* context)
 
 	if(used_bytes < 0)
     {
+		// Assume output() reported the error.
     	return false;
     }
     context->output_buffer.pos += used_bytes;
@@ -216,6 +230,7 @@ static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
 	    context->work_buffer.pos += remaining;
 	    if(!flush_buffer(context))
 	    {
+			// Assume flush_buffer() reported the error.
 	    	return false;
 	    }
 	    return add_bytes(context, ptr + remaining, length - remaining);
@@ -254,6 +269,9 @@ static bool add_int(bo_context* context, int64_t src_value)
             uint64_t value = (uint64_t)src_value;
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
+        case WIDTH_16:
+		    context->on_error("TODO: Width 16 not implemented yet");
+		    return false;
         default:
 		    context->on_error("Unhandled type/width");
 		    return false;
@@ -274,6 +292,9 @@ static bool add_float(bo_context* context, double src_value)
             double value = (double)src_value;
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
+        case WIDTH_16:
+		    context->on_error("TODO: Width 16 not implemented yet");
+		    return false;
         default:
 		    context->on_error("Unhandled type/width");
 		    return false;
@@ -308,8 +329,7 @@ void bo_free_buffer(bo_buffer* buffer)
 
 bool bo_on_string(bo_context* context, const char* string)
 {
-    add_bytes(context, (uint8_t*)string, strlen(string));
-    return true;
+    return add_bytes(context, (uint8_t*)string, strlen(string));
 }
 
 bool bo_on_number(bo_context* context, const char* string_value)
@@ -319,7 +339,7 @@ bool bo_on_number(bo_context* context, const char* string_value)
         case TYPE_FLOAT:
             return add_float(context, strtod(string_value, NULL));
         case TYPE_DECIMAL:
-            context->on_error("Unhandled type: %s", string_value);
+            context->on_error("TODO: Unimplemented decimal type: %s", string_value);
             return true;
         case TYPE_INT:
             return add_int(context, strtoll(string_value, NULL, 10));
@@ -330,6 +350,7 @@ bool bo_on_number(bo_context* context, const char* string_value)
         case TYPE_BOOLEAN:
             return add_int(context, strtoll(string_value, NULL, 2));
         default:
+            context->on_error("Unknown type %d for value [%s]", context->input.data_type, string_value);
         	return false;
     }
 }
