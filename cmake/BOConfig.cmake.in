@@ -1,0 +1,10 @@
+get_filename_component(BO_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+list(APPEND CMAKE_MODULE_PATH ${BO_CMAKE_DIR})
+
+if(NOT TARGET BO::BO)
+    include("${BO_CMAKE_DIR}/BOTargets.cmake")
+endif()
+
+set(BO_LIBRARIES BO::BO)
