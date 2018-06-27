@@ -25,9 +25,9 @@ void yyerror(const void *scanner, void* context, const char *msg);
     const char* string_v;
 }
 
-%type <string_v> string STRING NUMBER UNEXPECTED BAD_DATA INPUT_TYPE OUTPUT_TYPE PREFIX SUFFIX
+%type <string_v> STRING NUMBER INPUT_TYPE OUTPUT_TYPE OUTPUT_BINARY PREFIX SUFFIX UNEXPECTED BAD_DATA
 
-%token INPUT_TYPE OUTPUT_TYPE PREFIX SUFFIX STRING NUMBER UNEXPECTED BAD_DATA
+%token STRING NUMBER INPUT_TYPE OUTPUT_TYPE OUTPUT_BINARY PREFIX SUFFIX UNEXPECTED BAD_DATA
 
 %start begin
 
@@ -36,16 +36,17 @@ void yyerror(const void *scanner, void* context, const char *msg);
 begin: settings commands
 
 settings:
-    | settings setting
+       | settings setting
 
 setting: input_type
        | output_type
+       | output_binary
        | prefix
        | suffix
 
 commands:
-    | commands command
-    ;
+       | commands command
+       ;
 
 command: string
        | number
@@ -53,22 +54,15 @@ command: string
        | bad_data
        ;
 
-number: NUMBER           { if(!bo_on_number(context, $1)) return -1; }
-
-input_type: INPUT_TYPE   { if(!bo_set_input_type(context, $1)) return -1; }
-output_type: OUTPUT_TYPE { if(!bo_set_output_type(context, $1)) return -1; }
-prefix: PREFIX           { if(!bo_set_prefix(context, $1)) return -1; }
-suffix: SUFFIX           { if(!bo_set_suffix(context, $1)) return -1; }
-
-bad_data: UNEXPECTED     { context->on_error("Unexpected token: %s", $1); return -1; }
-        | BAD_DATA       { context->on_error("Bad encoding: %s", $1); return -1; }
-
-string: STRING {
-		char* str = (char*)$1;
-		str[strlen(str)-1] = 0;
-    if(!bo_on_string(context, str + 1)) return -1;
-	}
-
+input_type:    INPUT_TYPE    { if(!bo_set_input_type(context, $1)) return -1; }
+output_type:   OUTPUT_TYPE   { if(!bo_set_output_type(context, $1)) return -1; }
+output_binary: OUTPUT_BINARY { if(!bo_set_output_binary(context)) return -1; }
+prefix:        PREFIX        { if(!bo_set_prefix(context, $1)) return -1; }
+suffix:        SUFFIX        { if(!bo_set_suffix(context, $1)) return -1; }
+number:        NUMBER        { if(!bo_on_number(context, $1)) return -1; }
+string:        STRING        { char* str = (char*)$1; str[strlen(str)-1] = 0; if(!bo_on_string(context, str + 1)) return -1; }
+bad_data:      UNEXPECTED    { context->on_error("Unexpected token: %s", $1); return -1; }
+             | BAD_DATA      { context->on_error("Bad encoding: %s", $1); return -1; }
 
 %%
 

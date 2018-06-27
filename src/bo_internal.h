@@ -16,6 +16,7 @@ extern "C" {
 typedef enum
 {
     TYPE_NONE    = 0,
+    TYPE_BINARY  = 'B',
     TYPE_INT     = 'i',
     TYPE_HEX     = 'h',
     TYPE_OCTAL   = 'o',

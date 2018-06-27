@@ -37,8 +37,8 @@ U_INT         [0-9]+
 }
 
 i{NUMERIC_TYPE}{WIDTH}{ENDIAN} { yylval->string_v = yytext+1; return INPUT_TYPE; }
-
 o{NUMERIC_TYPE}{WIDTH}{ENDIAN}{U_INT} { yylval->string_v = yytext+1; return OUTPUT_TYPE; }
+oB { return OUTPUT_BINARY; }
 
 p{VALUE_STRING} {
     yylval->string_v = unescape_unquote_string(yytext + 1);

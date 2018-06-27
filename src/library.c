@@ -351,7 +351,7 @@ void bo_finish(bo_context* context)
 bool bo_set_input_type(bo_context* context, const char* string_value)
 {
     context->input.data_type = *string_value++;
-    context->input.data_width = strtol(string_value, NULL, 10);;
+    context->input.data_width = strtol(string_value, NULL, 10);
     string_value += context->input.data_width >= 10 ? 2 : 1;
     context->input.endianness = *string_value;
     return true;
@@ -360,10 +360,21 @@ bool bo_set_input_type(bo_context* context, const char* string_value)
 bool bo_set_output_type(bo_context* context, const char* string_value)
 {
     context->output.data_type = *string_value++;
-    context->output.data_width = strtol(string_value, NULL, 10);;
+    context->output.data_width = strtol(string_value, NULL, 10);
     string_value += context->output.data_width >= 10 ? 2 : 1;
     context->output.endianness = *string_value++;
-    context->output.text_width = strtol(string_value, NULL, 10);;
+    context->output.text_width = strtol(string_value, NULL, 10);
+	return true;
+}
+
+bool bo_set_output_binary(bo_context* context)
+{
+    context->output.data_type = TYPE_BINARY;
+    context->output.data_width = 0;
+    context->output.endianness = BO_ENDIAN_LITTLE;
+    context->output.text_width = 0;
+    bo_set_prefix(context, "");
+    bo_set_suffix(context, "");
 	return true;
 }
 
