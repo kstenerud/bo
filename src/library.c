@@ -175,25 +175,36 @@ static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* ds
 	uint8_t* dst_pos = dst;
     for(int i = 0; i < src_length; i += bytes_per_entry)
     {
-    	// TODO: Make sure there's enough data to print the minimum bytes per entry!
-    	int bytes_written = string_print(src+i, buffer_start, context->output.text_width);
+    	uint8_t overflow_buffer[17];
+    	uint8_t* src_ptr = src + i;
+    	if(src_length - i < bytes_per_entry)
+    	{
+    		memset(overflow_buffer, 0, sizeof(overflow_buffer));
+    		memcpy(overflow_buffer, src_ptr, src_length - i);
+    		src_ptr = overflow_buffer;
+    	}
+
+    	int bytes_written = string_print(src_ptr, buffer_start, context->output.text_width);
     	if(bytes_written < 0)
     	{
     		context->on_error("Error writing string value");
     		return -1;
     	}
+
     	char* buffer_pos = buffer_start + bytes_written;
         if(i < src_length - bytes_per_entry && context->output.suffix != NULL)
         {
 	    	strcpy(buffer_pos, context->output.suffix);
 	    	buffer_pos += strlen(buffer_pos);
 	    }
+
 	    int entry_length = buffer_pos - buffer;
 	    if(dst_pos + entry_length >= dst_end)
 	    {
     		context->on_error("Not enough room to write entry");
 	    	return -1;
 	    }
+
 	    memcpy(dst_pos, buffer, entry_length + 1);
         dst_pos += entry_length;
     }
