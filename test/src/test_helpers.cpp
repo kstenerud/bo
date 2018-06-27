@@ -29,8 +29,8 @@ static void reset_errors()
 void assert_conversion(const char* input, const char* expected_output)
 {
 	reset_errors();
-	char buffer[10000];
-	int buffer_length = sizeof(buffer) - 1;
+	int buffer_length = 10000;
+	char buffer[buffer_length + 1];
 	int bytes_written = bo_process_string(input, buffer, buffer_length, on_error);
 	ASSERT_GE(bytes_written, 0);
 	ASSERT_FALSE(has_errors());
@@ -38,11 +38,10 @@ void assert_conversion(const char* input, const char* expected_output)
 	ASSERT_STREQ(expected_output, buffer);
 }
 
-void assert_failed_conversion(const char* input, const char* expected_output)
+void assert_failed_conversion(int buffer_length, const char* input)
 {
 	reset_errors();
-	char buffer[10000];
-	int buffer_length = sizeof(buffer) - 1;
+	char buffer[buffer_length + 1];
 	int bytes_written = bo_process_string(input, buffer, buffer_length, on_error);
 	ASSERT_LT(bytes_written, 0);
 	ASSERT_TRUE(has_errors());

@@ -24,6 +24,7 @@ add_executable(bo_test
                    src/main.cpp
                    src/test_helpers.cpp
                    src/output.cpp
+                   src/errors.cpp
                )
 
 target_compile_features(bo_test PRIVATE cxx_auto_type)

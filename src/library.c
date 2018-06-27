@@ -142,7 +142,7 @@ static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* ds
 {
 	if(src_length > dst_length)
 	{
-		context->on_error("Internal Error: src_length (%d) > dst_length (%d)", src_length, dst_length);
+		context->on_error("Not enough room in destination buffer");
 		return -1;
 	}
 
@@ -201,7 +201,7 @@ static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* ds
 	    int entry_length = buffer_pos - buffer;
 	    if(dst_pos + entry_length >= dst_end)
 	    {
-    		context->on_error("Not enough room to write entry");
+			context->on_error("Not enough room in destination buffer");
 	    	return -1;
 	    }
 
@@ -218,9 +218,9 @@ static bool flush_buffer(bo_context* context)
 		return true;
 	}
 
-	int work_length = context->work_buffer.pos - context->work_buffer.start;
-	int output_length = context->work_buffer.end - context->work_buffer.pos;
-	int used_bytes = output(context, context->work_buffer.start, work_length, context->output_buffer.pos, output_length);
+	int work_filled = context->work_buffer.pos - context->work_buffer.start;
+	int output_remaining = context->output_buffer.end - context->output_buffer.pos;
+	int used_bytes = output(context, context->work_buffer.start, work_filled, context->output_buffer.pos, output_remaining);
 
 	if(used_bytes < 0)
     {
@@ -366,9 +366,9 @@ bool bo_on_number(bo_context* context, const char* string_value)
     }
 }
 
-void bo_finish(bo_context* context)
+bool bo_finish(bo_context* context)
 {
-    flush_buffer(context);
+    bool success = flush_buffer(context);
     bo_free_buffer(&context->work_buffer);
 	if(context->output.prefix != NULL)
 	{
@@ -378,6 +378,7 @@ void bo_finish(bo_context* context)
 	{
 		free((void*)context->output.suffix);
 	}
+	return success;
 }
 
 bool bo_set_input_type(bo_context* context, const char* string_value)

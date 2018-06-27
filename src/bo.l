@@ -78,11 +78,11 @@ int bo_process_string(const char* input, char* output, int output_length, error_
     }
 
     yy_scan_string(input, scanner);
-    bool was_successful = yyparse(scanner, &context) == 0;
-    bo_finish(&context);
+    bool parse_was_successful = yyparse(scanner, &context) == 0;
+    bool finish_was_successful = bo_finish(&context);
     yylex_destroy(scanner);
 
-    if(!was_successful)
+    if(!(parse_was_successful && finish_was_successful))
     {
         context.on_error("Failed to parse");
         return -1;
