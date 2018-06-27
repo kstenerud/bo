@@ -115,7 +115,7 @@ static string_printer get_string_printer(bo_context* context)
 	    	switch(context->output.data_width)
 	    	{
 	    		case 2:
-	    			context->on_error("TODO: FLOAT 2not implemented");
+	    			context->on_error("TODO: FLOAT 2 not implemented");
 	    			return NULL;
 	    		case 4: return string_print_float_4;
 	    		case 8: return string_print_float_8;
@@ -281,10 +281,10 @@ static bool add_int(bo_context* context, int64_t src_value)
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         case WIDTH_16:
-		    context->on_error("TODO: Width 16 not implemented yet");
+		    context->on_error("TODO: Int width 16 not implemented yet");
 		    return false;
         default:
-		    context->on_error("Unhandled type/width");
+		    context->on_error("$d: Invalid int width", context->input.data_width);
 		    return false;
     }
 }
@@ -293,6 +293,9 @@ static bool add_float(bo_context* context, double src_value)
 {
     switch(context->input.data_width)
     {
+        case WIDTH_2:
+		    context->on_error("TODO: Float width 2 not implemented yet");
+		    return false;
         case WIDTH_4:
         {
             float value = (float)src_value;
@@ -304,10 +307,10 @@ static bool add_float(bo_context* context, double src_value)
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         case WIDTH_16:
-		    context->on_error("TODO: Width 16 not implemented yet");
+		    context->on_error("TODO: Float width 16 not implemented yet");
 		    return false;
         default:
-		    context->on_error("Unhandled type/width");
+		    context->on_error("%d: Invalid float width", context->input.data_width);
 		    return false;
     }
 }
