@@ -68,10 +68,11 @@ static string_printer get_string_printer(bo_context* context)
 	    		case 4: return string_print_int_4;
 	    		case 8: return string_print_int_8;
 	    		case 16:
-	    			// TODO
+	    			// TODO: Implement this
+	    			context->on_error("Not Implemented: INT 16");
 	    			return NULL;
 	    		default:
-	    			// TODO: Report error
+	    			context->on_error("%d: invalid data width", context->output.data_width);
 	    			return NULL;
 	    	}
 	    }
@@ -84,10 +85,11 @@ static string_printer get_string_printer(bo_context* context)
 	    		case 4: return string_print_hex_4;
 	    		case 8: return string_print_hex_8;
 	    		case 16:
-	    			// TODO
+	    			// TODO: Implement this
+	    			context->on_error("Not Implemented: HEX 16");
 	    			return NULL;
 	    		default:
-	    			// TODO: Report error
+	    			context->on_error("%d: invalid data width", context->output.data_width);
 	    			return NULL;
 	    	}
 	    }
@@ -100,40 +102,45 @@ static string_printer get_string_printer(bo_context* context)
 	    		case 4: return string_print_octal_4;
 	    		case 8: return string_print_octal_8;
 	    		case 16:
-	    			// TODO
+	    			// TODO: Implement this
+	    			context->on_error("Not Implemented: OCTAL 16");
 	    			return NULL;
 	    		default:
-	    			// TODO: Report error
+	    			context->on_error("%d: invalid data width", context->output.data_width);
 	    			return NULL;
 	    	}
 	    }
     	case TYPE_BOOLEAN:
-    		// TODO
+			// TODO: Implement this
+			context->on_error("Not Implemented: BOOLEAN");
     		return NULL;
     	case TYPE_FLOAT:
     	{
 	    	switch(context->output.data_width)
 	    	{
 	    		case 2:
-	    			// TODO
+	    			// TODO: Implement this
+	    			context->on_error("Not Implemented: FLOAT 2");
 	    			return NULL;
 	    		case 4: return string_print_float_4;
 	    		case 8: return string_print_float_8;
 	    		case 16:
-	    			// TODO
+	    			// TODO: Implement this
+	    			context->on_error("Not Implemented: FLOAT 16");
 	    			return NULL;
 	    		default:
-	    			// TODO: Report error
+	    			context->on_error("%d: invalid data width", context->output.data_width);
 	    			return NULL;
 	    	}
 	    }
     	case TYPE_DECIMAL:
-			// TODO
+			// TODO: Implement this
+			context->on_error("Not Implemented: DECIMAL");
     		return NULL;
     	case TYPE_STRING:
-			// TODO: Report error
+			context->on_error("\"String\" is not a valid output format");
 		default:
-			// TODO: Report error
+			context->on_error("%d: Unknown data type", context->output.data_type);
 			return NULL;
 	}
 }
