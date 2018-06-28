@@ -27,15 +27,15 @@ static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t*
 } \
 static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
 { \
-	if(sizeof(REAL_TYPE) == 1 || endianness == BO_NATIVE_INT_ENDIANNESS) \
+	if(DATA_WIDTH == 1 || endianness == BO_NATIVE_INT_ENDIANNESS) \
 	{ \
 		return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (src, dst, text_width); \
 	} \
 \
-	uint8_t buffer[sizeof(REAL_TYPE)]; \
-	for(int i = sizeof(REAL_TYPE) - 1; i <= 0; i--) \
+	uint8_t buffer[DATA_WIDTH]; \
+	for(int i = 0; i < DATA_WIDTH; i++) \
 	{ \
-		buffer[i] = src[sizeof(REAL_TYPE) - i - 1]; \
+		buffer[i] = src[DATA_WIDTH - i - 1]; \
 	} \
 	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
 }
@@ -67,10 +67,10 @@ static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* d
 		return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (src, dst, text_width); \
 	} \
 \
-	uint8_t buffer[sizeof(REAL_TYPE)]; \
-	for(int i = sizeof(REAL_TYPE) - 1; i <= 0; i--) \
+	uint8_t buffer[DATA_WIDTH]; \
+	for(int i = 0; i < DATA_WIDTH; i++) \
 	{ \
-		buffer[i] = src[sizeof(REAL_TYPE) - i - 1]; \
+		buffer[i] = src[DATA_WIDTH - i - 1]; \
 	} \
 	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
 }
