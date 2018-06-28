@@ -13,6 +13,11 @@ extern "C" {
 #define BO_IS_LE_INT (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 #define BO_IS_LE_FLOAT (__FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 
+#define BO_NATIVE_INT_ENDIANNESS (((__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
+                                  ((__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
+#define BO_NATIVE_FLOAT_ENDIANNESS (((__FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
+                                    ((__FLOAT_WORD_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
+
 typedef enum
 {
     TYPE_NONE    = 0,

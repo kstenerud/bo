@@ -21,9 +21,23 @@ DEFINE_SAFE_STRUCT(safe_decimal_8,  _Decimal64);
 DEFINE_SAFE_STRUCT(safe_decimal_16, _Decimal128);
 
 #define DEFINE_INT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t* src, char* dst, int text_width) \
 { \
 	return sprintf(dst, "%0*" #FORMAT, text_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+} \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
+{ \
+	if(sizeof(REAL_TYPE) == 1 || endianness == BO_NATIVE_INT_ENDIANNESS) \
+	{ \
+		return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (src, dst, text_width); \
+	} \
+\
+	uint8_t buffer[sizeof(REAL_TYPE)]; \
+	for(int i = sizeof(REAL_TYPE) - 1; i <= 0; i--) \
+	{ \
+		buffer[i] = src[sizeof(REAL_TYPE) - i - 1]; \
+	} \
+	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
 }
 DEFINE_INT_STRING_PRINTER(int, int, 1, d)
 DEFINE_INT_STRING_PRINTER(int, int, 2, d)
@@ -42,9 +56,23 @@ DEFINE_INT_STRING_PRINTER(octal, uint, 8, lo)
 // TODO: octal-16
 
 #define DEFINE_FLOAT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t* src, char* dst, int text_width) \
 { \
 	return sprintf(dst, "%.*" #FORMAT, text_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+} \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
+{ \
+	if(endianness == BO_NATIVE_FLOAT_ENDIANNESS) \
+	{ \
+		return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (src, dst, text_width); \
+	} \
+\
+	uint8_t buffer[sizeof(REAL_TYPE)]; \
+	for(int i = sizeof(REAL_TYPE) - 1; i <= 0; i--) \
+	{ \
+		buffer[i] = src[sizeof(REAL_TYPE) - i - 1]; \
+	} \
+	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
 }
 // TODO: float-2
 DEFINE_FLOAT_STRING_PRINTER(float, float, 4, f)
@@ -53,7 +81,7 @@ DEFINE_FLOAT_STRING_PRINTER(float, float, 8, f)
 // TODO: decimal-8
 // TODO: decimal-16
 
-typedef int (*string_printer)(uint8_t* src, char* dst, int text_width);
+typedef int (*string_printer)(uint8_t* src, char* dst, int text_width, bo_endianness endianness);
 
 static string_printer get_string_printer(bo_context* context)
 {
@@ -184,7 +212,7 @@ static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* ds
     		src_ptr = overflow_buffer;
     	}
 
-    	int bytes_written = string_print(src_ptr, buffer_start, context->output.text_width);
+    	int bytes_written = string_print(src_ptr, buffer_start, context->output.text_width, context->output.endianness);
     	if(bytes_written < 0)
     	{
     		context->on_error("Error writing string value");
