@@ -287,7 +287,7 @@ static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
     return true;
 }
 
-static bool add_int(bo_context* context, int64_t src_value)
+static bool add_int(bo_context* context, uint64_t src_value)
 {
     switch(context->input.data_width)
     {
@@ -417,13 +417,13 @@ bool bo_on_number(bo_context* context, const char* string_value)
             context->on_error("TODO: Unimplemented decimal type: %s", string_value);
             return true;
         case TYPE_INT:
-            return add_int(context, strtoll(string_value, NULL, 10));
+            return add_int(context, strtoul(string_value, NULL, 10));
         case TYPE_HEX:
-            return add_int(context, strtoll(string_value, NULL, 16));
+            return add_int(context, strtoul(string_value, NULL, 16));
         case TYPE_OCTAL:
-            return add_int(context, strtoll(string_value, NULL, 8));
+            return add_int(context, strtoul(string_value, NULL, 8));
         case TYPE_BOOLEAN:
-            return add_int(context, strtoll(string_value, NULL, 2));
+            return add_int(context, strtoul(string_value, NULL, 2));
         default:
             context->on_error("Unknown type %d for value [%s]", context->input.data_type, string_value);
         	return false;
