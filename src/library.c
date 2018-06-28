@@ -3,6 +3,15 @@
 #include <stdio.h>
 #include <memory.h>
 
+
+static void byte_swap(uint8_t* dst, uint8_t* src, int length)
+{
+	for(int i = 0; i < length; i++)
+	{
+		dst[i] = src[length - i - 1];
+	}
+}
+
 // Force the compiler to generate handler code for unaligned accesses.
 #define DEFINE_SAFE_STRUCT(NAME, TYPE) typedef struct __attribute__((__packed__)) {TYPE contents;} NAME
 DEFINE_SAFE_STRUCT(safe_uint_1,     uint8_t);
@@ -33,10 +42,7 @@ static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* d
 	} \
 \
 	uint8_t buffer[DATA_WIDTH]; \
-	for(int i = 0; i < DATA_WIDTH; i++) \
-	{ \
-		buffer[i] = src[DATA_WIDTH - i - 1]; \
-	} \
+	byte_swap(buffer, src, DATA_WIDTH); \
 	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
 }
 DEFINE_INT_STRING_PRINTER(int, int, 1, d)
@@ -68,10 +74,7 @@ static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* d
 	} \
 \
 	uint8_t buffer[DATA_WIDTH]; \
-	for(int i = 0; i < DATA_WIDTH; i++) \
-	{ \
-		buffer[i] = src[DATA_WIDTH - i - 1]; \
-	} \
+	byte_swap(buffer, src, DATA_WIDTH); \
 	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
 }
 // TODO: float-2
@@ -296,16 +299,34 @@ static bool add_int(bo_context* context, int64_t src_value)
         case WIDTH_2:
         {
             uint16_t value = (uint16_t)src_value;
+            if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
+            {
+            	uint8_t buff[sizeof(value)];
+            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+	            return add_bytes(context, buff, sizeof(value));
+            }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         case WIDTH_4:
         {
             uint32_t value = (uint32_t)src_value;
+            if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
+            {
+            	uint8_t buff[sizeof(value)];
+            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+	            return add_bytes(context, buff, sizeof(value));
+            }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         case WIDTH_8:
         {
             uint64_t value = (uint64_t)src_value;
+            if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
+            {
+            	uint8_t buff[sizeof(value)];
+            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+	            return add_bytes(context, buff, sizeof(value));
+            }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         case WIDTH_16:
@@ -327,11 +348,23 @@ static bool add_float(bo_context* context, double src_value)
         case WIDTH_4:
         {
             float value = (float)src_value;
+            if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
+            {
+            	uint8_t buff[sizeof(value)];
+            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+	            return add_bytes(context, buff, sizeof(value));
+            }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         case WIDTH_8:
         {
             double value = (double)src_value;
+            if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
+            {
+            	uint8_t buff[sizeof(value)];
+            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+	            return add_bytes(context, buff, sizeof(value));
+            }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
         }
         case WIDTH_16:
