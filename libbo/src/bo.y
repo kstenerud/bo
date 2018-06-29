@@ -56,7 +56,7 @@ output_binary: OUTPUT_BINARY { if(!bo_set_output_binary(context)) return -1; }
 prefix:        PREFIX        { if(!bo_set_prefix(context, $1)) return -1; }
 suffix:        SUFFIX        { if(!bo_set_suffix(context, $1)) return -1; }
 number:        NUMBER        { if(!bo_on_number(context, $1)) return -1; }
-string:        STRING        { char* str = (char*)$1; str[strlen(str)-1] = 0; if(!bo_on_string(context, str + 1)) return -1; }
+string:        STRING        { if(!bo_on_string(context, $1)) return -1; }
 bad_data:      UNEXPECTED    { context->on_error("Unexpected token: %s", $1); return -1; }
              | BAD_DATA      { context->on_error("Bad encoding: %s", $1); return -1; }
 

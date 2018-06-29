@@ -79,3 +79,8 @@ TEST(BO_Output, hex_4_2_4_be)
 {
     assert_conversion("oh2b4 s\" \" ih4l 12345678", "7856 3412");
 }
+
+TEST(BO_Output, string)
+{
+    assert_conversion("oB \"This is a string\"", "This is a string");
+}

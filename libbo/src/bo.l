@@ -69,7 +69,7 @@ static char* unescape_unquote_string(char* str)
 int bo_process_string(const char* input, char* output, int output_length, error_callback on_error)
 {
     static const int work_buffer_size = 1600;
-    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, output_length, on_error);
+    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, output_length, NULL, on_error);
     yyscan_t scanner;
     if(yylex_init(&scanner) != 0)
     {
@@ -94,9 +94,9 @@ int bo_process_string(const char* input, char* output, int output_length, error_
 
 bool bo_process_stream(FILE* src, FILE* dst, error_callback on_error)
 {
-    uint8_t* output[1000]; int output_length = 1000; // TODO: Remove the need for these
     static const int work_buffer_size = 1600;
-    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, output_length, on_error);
+    uint8_t* output[10000];
+    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, sizeof(output), dst, on_error);
 
     yyscan_t scanner;
     if(yylex_init(&scanner) != 0)

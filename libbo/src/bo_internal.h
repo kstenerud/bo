@@ -57,6 +57,7 @@ typedef struct
 {
     bo_buffer work_buffer;
     bo_buffer output_buffer;
+    FILE* output_stream;
     struct
     {
         bo_data_type data_type;
@@ -76,7 +77,8 @@ typedef struct
 } bo_context;
 
 
-bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, error_callback on_error);
+bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, FILE* output_stream, error_callback on_error);
+
 
 bool bo_on_string(bo_context* context, const char* string);
 bool bo_on_number(bo_context* context, const char* string_value);

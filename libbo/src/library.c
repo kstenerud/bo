@@ -260,6 +260,19 @@ static bool flush_buffer(bo_context* context)
     }
     context->output_buffer.pos += used_bytes;
 	context->work_buffer.pos = context->work_buffer.start;
+
+    if(context->output_stream != NULL)
+    {
+        int bytes_to_write = context->output_buffer.pos - context->output_buffer.start;
+        int bytes_written = fwrite(context->output_buffer.start, 1, bytes_to_write, context->output_stream);
+        context->output_buffer.pos = context->output_buffer.start;
+        if(bytes_written != bytes_to_write)
+        {
+            perror("Error writing to output stream");
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -495,34 +508,35 @@ bool bo_set_suffix(bo_context* context, const char* string_value)
 	return true;
 }
 
-bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, error_callback on_error)
+bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, FILE* output_stream, error_callback on_error)
 {
-	bo_context context =
-	{
+    bo_context context =
+    {
         .work_buffer = bo_new_buffer(work_buffer_size),
         .output_buffer =
         {
-        	.start = output,
-        	.pos = output,
-        	.end = output + output_length,
+            .start = output,
+            .pos = output,
+            .end = output + output_length,
         },
+        .output_stream = output_stream,
         .input =
         {
-        	.data_type = TYPE_NONE,
-        	.data_width = 0,
+            .data_type = TYPE_NONE,
+            .data_width = 0,
         },
         .output =
         {
-        	.data_type = TYPE_NONE,
-        	.data_width = 0,
-        	.text_width = 0,
-        	.prefix = NULL,
-        	.suffix = NULL,
-        	.endianness = BO_ENDIAN_LITTLE,
+            .data_type = TYPE_NONE,
+            .data_width = 0,
+            .text_width = 0,
+            .prefix = NULL,
+            .suffix = NULL,
+            .endianness = BO_ENDIAN_LITTLE,
         },
         .on_error = on_error,
-	};
-	return context;
+    };
+    return context;
 }
 
 char* bo_unescape_string(char* str)
