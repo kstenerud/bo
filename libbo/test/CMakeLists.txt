@@ -1,5 +1,5 @@
 # Download and unpack googletest at configure time
-configure_file(${CMAKE_SOURCE_DIR}/cmake/GoogleTest-CMakeLists.txt.in ${CMAKE_BINARY_DIR}/googletest-download/CMakeLists.txt)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/GoogleTest-CMakeLists.txt.in ${CMAKE_BINARY_DIR}/googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
   RESULT_VARIABLE result
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
@@ -29,7 +29,7 @@ add_executable(bo_test
                )
 
 target_compile_features(bo_test PRIVATE cxx_auto_type)
-target_link_libraries(bo_test gtest_main BO::bo)
+target_link_libraries(bo_test gtest_main BO::libbo)
 
 # Gain access to internal headers
-include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
