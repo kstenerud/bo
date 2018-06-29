@@ -31,7 +31,7 @@ add_executable(libbo_test
                )
 
 target_compile_features(libbo_test PRIVATE cxx_auto_type)
-target_link_libraries(libbo_test gtest_main BO::libbo)
+target_link_libraries(libbo_test gtest_main libbo)
 
 # Gain access to internal headers
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)

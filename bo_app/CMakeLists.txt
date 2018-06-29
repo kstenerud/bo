@@ -3,4 +3,4 @@ project(bo_app VERSION 1.0.0 LANGUAGES C)
 
 add_executable(bo src/main.c)
 
-target_link_libraries(libbo)
+target_link_libraries(bo libbo)
