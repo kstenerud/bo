@@ -10,9 +10,6 @@ extern "C" {
 #include <stdint.h>
 
 
-#define BO_IS_LE_INT (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-#define BO_IS_LE_FLOAT (__FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-
 #define BO_NATIVE_INT_ENDIANNESS (((__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
                                   ((__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
 #define BO_NATIVE_FLOAT_ENDIANNESS (((__FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
@@ -84,6 +81,7 @@ bool bo_on_string(bo_context* context, const char* string);
 bool bo_on_number(bo_context* context, const char* string_value);
 bool bo_set_input_type(bo_context* context, const char* string_value);
 bool bo_set_output_type(bo_context* context, const char* string_value);
+bool bo_set_output_type_binary(bo_context* context);
 bool bo_set_prefix(bo_context* context, const char* string_value);
 bool bo_set_suffix(bo_context* context, const char* string_value);
 

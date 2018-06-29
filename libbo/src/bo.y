@@ -52,7 +52,7 @@ command: string
 
 input_type:    INPUT_TYPE    { if(!bo_set_input_type(context, $1)) return -1; }
 output_type:   OUTPUT_TYPE   { if(!bo_set_output_type(context, $1)) return -1; }
-output_binary: OUTPUT_BINARY { if(!bo_set_output_binary(context)) return -1; }
+output_binary: OUTPUT_BINARY { if(!bo_set_output_type_binary(context)) return -1; }
 prefix:        PREFIX        { if(!bo_set_prefix(context, $1)) return -1; }
 suffix:        SUFFIX        { if(!bo_set_suffix(context, $1)) return -1; }
 number:        NUMBER        { if(!bo_on_number(context, $1)) return -1; }

@@ -477,7 +477,7 @@ bool bo_set_output_type(bo_context* context, const char* string_value)
 	return true;
 }
 
-bool bo_set_output_binary(bo_context* context)
+bool bo_set_output_type_binary(bo_context* context)
 {
     context->output.data_type = TYPE_BINARY;
     context->output.data_width = 0;
