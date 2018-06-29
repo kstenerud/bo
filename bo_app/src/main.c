@@ -1,6 +1,7 @@
 #include <bo/bo.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 static void print_usage()
 {
@@ -19,6 +20,11 @@ static void on_error(const char* fmt, ...)
 }
 
 int main(int argc, char* argv[])
+{
+	bo_process_stream(stdin, stdout, on_error);
+}
+
+int mainX(int argc, char* argv[])
 {
 	if(argc != 2)
 	{

@@ -77,9 +77,10 @@ int bo_process_string(const char* input, char* output, int output_length, error_
         return -1;
     }
 
-    yy_scan_string(input, scanner);
+    YY_BUFFER_STATE buf = yy_scan_string(input, scanner);
     bool parse_was_successful = yyparse(scanner, &context) == 0;
     bool finish_was_successful = bo_finish(&context);
+    yy_delete_buffer(buf, scanner);
     yylex_destroy(scanner);
 
     if(!(parse_was_successful && finish_was_successful))
@@ -89,6 +90,33 @@ int bo_process_string(const char* input, char* output, int output_length, error_
     }
 
     return context.output_buffer.pos - context.output_buffer.start;
+}
+
+bool bo_process_stream(FILE* src, FILE* dst, error_callback on_error)
+{
+    uint8_t* output[1000]; int output_length = 1000; // TODO: Remove the need for these
+    static const int work_buffer_size = 1600;
+    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, output_length, on_error);
+
+    yyscan_t scanner;
+    if(yylex_init(&scanner) != 0)
+    {
+        context.on_error("Could not init scanner");
+        return false;
+    }
+
+    yyset_in(src, scanner);
+    yyset_out(dst, scanner);
+    bool parse_was_successful = yyparse(scanner, &context) == 0;
+    bool finish_was_successful = bo_finish(&context);
+    yylex_destroy(scanner);
+
+    if(!(parse_was_successful && finish_was_successful))
+    {
+        context.on_error("Failed to parse");
+        return false;
+    }
+    return true;
 }
 
 void yyerror(const void const *scanner __attribute__((unused)), bo_context* context, const char* const msg)

@@ -13,21 +13,17 @@ void yyerror(const void *scanner, void* context, const char *msg);
 
 %}
 
-%define api.pure full
 %define parse.error verbose
 
+%define api.pure full
 %lex-param { void* scanner }
-
-%parse-param { void* scanner }
-%parse-param { bo_context* context }
+%parse-param { void* scanner } { bo_context* context }
 
 %union {
     const char* string_v;
 }
 
-%type <string_v> STRING NUMBER INPUT_TYPE OUTPUT_TYPE OUTPUT_BINARY PREFIX SUFFIX UNEXPECTED BAD_DATA
-
-%token STRING NUMBER INPUT_TYPE OUTPUT_TYPE OUTPUT_BINARY PREFIX SUFFIX UNEXPECTED BAD_DATA
+%token <string_v> STRING NUMBER INPUT_TYPE OUTPUT_TYPE OUTPUT_BINARY PREFIX SUFFIX UNEXPECTED BAD_DATA
 
 %start begin
 
