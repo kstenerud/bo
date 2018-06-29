@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(libbo VERSION 1.0.0 LANGUAGES C CXX)
+project(libbo VERSION 1.0.0 LANGUAGES C)
 
 #Make sure that custom modules are found
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake)
@@ -33,7 +33,6 @@ target_include_directories(libbo
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_features(libbo PRIVATE cxx_auto_type)
 target_compile_options(libbo PRIVATE $<$<CXX_COMPILER_ID:GNU>:
     -Wall
     -Wextra

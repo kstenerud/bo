@@ -1,3 +1,5 @@
+enable_language(CXX)
+
 # Download and unpack googletest at configure time
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/GoogleTest-CMakeLists.txt.in ${CMAKE_BINARY_DIR}/googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
@@ -20,7 +22,7 @@ add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
                  EXCLUDE_FROM_ALL)
 
 # Now simply link against gtest or gtest_main as needed. Eg
-add_executable(bo_test
+add_executable(libbo_test
                    src/main.cpp
                    src/test_helpers.cpp
                    src/output.cpp
@@ -28,8 +30,8 @@ add_executable(bo_test
                    src/input.cpp
                )
 
-target_compile_features(bo_test PRIVATE cxx_auto_type)
-target_link_libraries(bo_test gtest_main BO::libbo)
+target_compile_features(libbo_test PRIVATE cxx_auto_type)
+target_link_libraries(libbo_test gtest_main BO::libbo)
 
 # Gain access to internal headers
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
