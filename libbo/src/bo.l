@@ -26,6 +26,7 @@ WIDTH         1|2|4|8|16
 NUMERIC_TYPE  [ihobfd]
 ENDIAN        l|b
 U_INT         [0-9]+
+PREFIX_SUFFIX [cs]
 
 %%
 
@@ -49,6 +50,8 @@ s{VALUE_STRING} {
     yylval->string_v = unescape_unquote_string(yytext + 1);
     return (yylval->string_v == yytext + 2) ? SUFFIX : BAD_DATA;
 }
+
+P{PREFIX_SUFFIX} { yylval->string_v = yytext + 1; return PREFIX_SUFFIX; }
 
 . { yylval->string_v = yytext; return UNEXPECTED; }
 

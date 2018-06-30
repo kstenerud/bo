@@ -23,38 +23,28 @@ void yyerror(const void *scanner, void* context, const char *msg);
     const char* string_v;
 }
 
-%token <string_v> STRING NUMBER INPUT_TYPE OUTPUT_TYPE OUTPUT_BINARY PREFIX SUFFIX UNEXPECTED BAD_DATA
+%token <string_v> STRING NUMBER INPUT_TYPE OUTPUT_TYPE OUTPUT_BINARY PREFIX SUFFIX PREFIX_SUFFIX UNEXPECTED BAD_DATA
 
 %start begin
 
 %%
 
-begin: settings commands
+begin: output_settings commands
 
-settings:
-       | settings setting
+output_settings: | output_settings output_setting
 
-setting: input_type
-       | output_type
-       | output_binary
-       | prefix
-       | suffix
+output_setting: prefix | suffix | prefix_suffix | output_type | output_binary
 
-commands:
-       | commands command
-       ;
+commands: | commands command
 
-command: string
-       | number
-       | input_type
-       | bad_data
-       ;
+command: string | number | input_type | bad_data
 
 input_type:    INPUT_TYPE    { if(!bo_set_input_type(context, $1)) return -1; }
 output_type:   OUTPUT_TYPE   { if(!bo_set_output_type(context, $1)) return -1; }
 output_binary: OUTPUT_BINARY { if(!bo_set_output_type_binary(context)) return -1; }
 prefix:        PREFIX        { if(!bo_set_prefix(context, $1)) return -1; }
 suffix:        SUFFIX        { if(!bo_set_suffix(context, $1)) return -1; }
+prefix_suffix: PREFIX_SUFFIX { if(!bo_set_prefix_suffix(context, $1)) return -1; }
 number:        NUMBER        { if(!bo_on_number(context, $1)) return -1; }
 string:        STRING        { if(!bo_on_string(context, $1)) return -1; }
 bad_data:      UNEXPECTED    { context->on_error("Unexpected token: %s", $1); return -1; }

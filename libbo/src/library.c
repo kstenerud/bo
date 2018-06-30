@@ -169,6 +169,11 @@ static string_printer get_string_printer(bo_context* context)
 	}
 }
 
+static inline bool can_input_numbers(bo_context* context)
+{
+    return context->input.data_type != TYPE_NONE;
+}
+
 static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* dst, int dst_length)
 {
 	if(src_length > dst_length)
@@ -422,6 +427,12 @@ bool bo_on_string(bo_context* context, const char* string)
 
 bool bo_on_number(bo_context* context, const char* string_value)
 {
+    if(!can_input_numbers(context))
+    {
+        context->on_error("Must set input type before adding numbers");
+        return false;
+    }
+
     switch(context->input.data_type)
     {
         case TYPE_FLOAT:
@@ -506,6 +517,32 @@ bool bo_set_suffix(bo_context* context, const char* string_value)
 	}
 	context->output.suffix = strdup(string_value);
 	return true;
+}
+
+bool bo_set_prefix_suffix(bo_context* context, const char* string_value)
+{
+    switch(*string_value)
+    {
+        case 's':
+            bo_set_suffix(context, " ");
+            break;
+        case 'c':
+            bo_set_suffix(context, ", ");
+            switch(context->output.data_type)
+            {
+                case TYPE_HEX:
+                    bo_set_prefix(context, "0x");
+                    break;
+                case TYPE_OCTAL:
+                    bo_set_prefix(context, "0");
+                    break;
+            }
+            break;
+        default:
+            context->on_error("%s: Unknown prefix-suffix preset", string_value);
+            return false;
+    }
+    return true;
 }
 
 bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, FILE* output_stream, error_callback on_error)
