@@ -459,17 +459,7 @@ bool bo_on_number(bo_context* context, const char* string_value)
 
 bool bo_finish(bo_context* context)
 {
-    bool success = flush_buffer(context);
-    bo_free_buffer(&context->work_buffer);
-	if(context->output.prefix != NULL)
-	{
-		free((void*)context->output.prefix);
-	}
-	if(context->output.suffix != NULL)
-	{
-		free((void*)context->output.suffix);
-	}
-	return success;
+    return flush_buffer(context);
 }
 
 bool bo_set_input_type(bo_context* context, const char* string_value)
@@ -615,6 +605,14 @@ void bo_destroy_context(void* void_context)
     {
         bo_free_buffer(&context->output_buffer);
     }
+	if(context->output.prefix != NULL)
+	{
+		free((void*)context->output.prefix);
+	}
+	if(context->output.suffix != NULL)
+	{
+		free((void*)context->output.suffix);
+	}
     free((void*)context);
 }
 

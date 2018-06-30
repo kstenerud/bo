@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <string.h>
 
 static void print_usage()
 {
@@ -26,94 +27,108 @@ static void on_error(const char* fmt, ...)
 	va_end(args);	
 }
 
-#define PERROR_EXIT(FMT, ...) do { fprintf(stderr, FMT, __VA_ARGS__); perror(""); return 1; } while(false)
+#define PERROR_EXIT(FMT, ...) do { fprintf(stderr, FMT, __VA_ARGS__); perror(""); exit(1); } while(false)
 
-static int process_stream(const char* input_filename, const char* output_filename)
+FILE* new_output_stream(const char* filename)
 {
-	FILE* in_stream = input_filename == NULL ? stdin : fopen(input_filename, "rb");
-	if(in_stream == NULL)
+	if(filename == NULL)
 	{
-		PERROR_EXIT("Could not open %s for reading", input_filename);
+		return NULL;
 	}
-	FILE* out_stream = output_filename == NULL ? stdout : fopen(output_filename, "wb");
-	if(out_stream == NULL)
+	if(strcmp(filename, "-") == 0)
 	{
-		PERROR_EXIT("Could not open %s for writing", output_filename);
+		return stdout;
 	}
 
-	void* context = bo_new_stream_context(out_stream, on_error);
-	return bo_process_stream(in_stream, context) ? 0 : 1;
+	FILE* stream = fopen(filename, "wb");
+	if(stream == NULL)
+	{
+		PERROR_EXIT("Could not open %s for writing", filename);
+	}
+	return stream;
 }
 
-static int process_string(const char* input, const char* output_filename)
+FILE* new_input_stream(const char* filename)
 {
-	FILE* out_stream = output_filename == NULL ? stdout : fopen(output_filename, "wb");
-	if(out_stream == NULL)
+	if(filename == NULL)
 	{
-		PERROR_EXIT("Could not open %s for writing", output_filename);
+		return NULL;
+	}
+	if(strcmp(filename, "-") == 0)
+	{
+		return stdin;
 	}
 
-	int returnval = 0;
-	const int buffer_size = 100000;
-	char* buffer = malloc(buffer_size);
-	void* context = bo_new_buffer_context((uint8_t*)buffer, buffer_size, on_error);
-	int bytes_processed = bo_process_string(input, context);
-	if(bytes_processed > 0)
+	FILE* stream = fopen(filename, "rb");
+	if(stream == NULL)
 	{
-		int bytes_written = fwrite(buffer, 1, bytes_processed, out_stream);
-		if(bytes_written != bytes_processed)
-		{
-			if(output_filename == NULL)
-			{
-				output_filename = "STDOUT";
-			}
-			PERROR_EXIT("Error writing to %s", output_filename);
-		}
-		fflush(out_stream);
+		PERROR_EXIT("Could not open %s for reading", filename);
 	}
-	else
+	return stream;
+}
+
+static void teardown(void* context, FILE* in_stream, FILE* out_stream)
+{
+	if(context != NULL)
 	{
-		returnval = 1;
+		bo_destroy_context(context);
 	}
-	free(buffer);
-	return returnval;
+	if(in_stream != NULL && in_stream != stdin)
+	{
+		fclose(in_stream);
+	}
+	if(out_stream != NULL && out_stream != stdout)
+	{
+		fclose(out_stream);
+	}
 }
 
 int main(int argc, char* argv[])
 {
-	const char* input_filename = NULL;
-	const char* output_filename = NULL;
-	const char* output_config = NULL;
+	void* context = NULL;
+	FILE* in_stream = NULL;
+	FILE* out_stream = stdout;
 	int opt;
-    while((opt = getopt (argc, argv, "f:o:b:")) != -1)
+    while((opt = getopt (argc, argv, "i:o:")) != -1)
     {
     	switch(opt)
         {
-		    case 'f':
-        		input_filename = optarg;
+		    case 'i':
+        		in_stream = new_input_stream(optarg);
         		break;
 		    case 'o':
-        		output_filename = optarg;
-        		break;
-		    case 'b':
-        		output_config = optarg;
+		    	out_stream = new_output_stream(optarg);
         		break;
       		default:
 				print_usage();
 				return 1;
       	}
 	}
+	const char* in_string = optind < argc ? argv[optind] : NULL;
 
-	if(optind < argc)
+	if(in_string == NULL && in_stream == NULL)
 	{
-		if(input_filename != NULL)
-		{
-			fprintf(stderr, "Must specify EITHER an input file OR an input string\n");
-			return 1;
-		}
-		const char* input_string = argv[optind];
-		return process_string(input_string, output_filename);
+		fprintf(stderr, "Must specify input string and/or input stream\n");
+		goto failed;
 	}
 
-	return process_stream(input_filename, output_filename);
+	context = bo_new_stream_context(out_stream, on_error);
+
+	if(in_string != NULL && bo_process_string(in_string, context) != 0)
+	{
+		goto failed;
+	}
+
+	if(in_stream != NULL && !bo_process_stream(in_stream, context))
+	{
+		goto failed;
+	}
+
+	teardown(context, in_stream, out_stream);
+	return 0;
+
+failed:
+    printf("failed\n");fflush(stdout);
+	teardown(context, in_stream, out_stream);
+	return 1;
 }
