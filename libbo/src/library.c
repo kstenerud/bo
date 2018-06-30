@@ -4,6 +4,8 @@
 #include <memory.h>
 
 
+#define WORK_BUFFER_SIZE 1600
+
 static void byte_swap(uint8_t* dst, uint8_t* src, int length)
 {
 	for(int i = 0; i < length; i++)
@@ -283,7 +285,8 @@ static bool flush_buffer(bo_context* context)
 
 static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
 {
-    int remaining = context->work_buffer.end - context->work_buffer.pos;
+    const int space_for_null_termination = 1;
+    int remaining = context->work_buffer.end - context->work_buffer.pos - space_for_null_termination;
     if(length > remaining)
     {
 	    memcpy(context->work_buffer.pos, ptr, remaining);
@@ -488,6 +491,14 @@ bool bo_set_output_type(bo_context* context, const char* string_value)
 	return true;
 }
 
+bool bo_set_input_type_binary(bo_context* context)
+{
+    context->input.data_type = TYPE_BINARY;
+    context->input.data_width = 0;
+    context->input.endianness = BO_ENDIAN_LITTLE;
+    return true;
+}
+
 bool bo_set_output_type_binary(bo_context* context)
 {
     context->output.data_type = TYPE_BINARY;
@@ -496,7 +507,7 @@ bool bo_set_output_type_binary(bo_context* context)
     context->output.text_width = 0;
     bo_set_prefix(context, "");
     bo_set_suffix(context, "");
-	return true;
+    return true;
 }
 
 bool bo_set_prefix(bo_context* context, const char* string_value)
@@ -545,11 +556,11 @@ bool bo_set_prefix_suffix(bo_context* context, const char* string_value)
     return true;
 }
 
-bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, FILE* output_stream, error_callback on_error)
+static void* new_context(uint8_t* output, int output_length, FILE* output_stream, error_callback on_error)
 {
     bo_context context =
     {
-        .work_buffer = bo_new_buffer(work_buffer_size),
+        .work_buffer = bo_new_buffer(WORK_BUFFER_SIZE),
         .output_buffer =
         {
             .start = output,
@@ -573,7 +584,38 @@ bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_leng
         },
         .on_error = on_error,
     };
-    return context;
+
+    char* heap_context = malloc(sizeof(context));
+    memcpy(heap_context, &context, sizeof(context));
+    return (bo_context*)heap_context;
+}
+
+static bool context_output_buffer_is_owned_by_us(bo_context* context)
+{
+    return context->output_stream != NULL;
+}
+
+void* bo_new_buffer_context(uint8_t* output_buffer, int output_buffer_length, error_callback on_error)
+{
+    return new_context(output_buffer, output_buffer_length, NULL, on_error);
+}
+
+void* bo_new_stream_context(FILE* output_stream, error_callback on_error)
+{
+    int output_buffer_length = WORK_BUFFER_SIZE * 100;
+    uint8_t* output_buffer = malloc(output_buffer_length);
+    return new_context(output_buffer, output_buffer_length, output_stream, on_error);
+}
+
+void bo_destroy_context(void* void_context)
+{
+    bo_context* context = (bo_context*)void_context;
+    bo_free_buffer(&context->work_buffer);
+    if(context_output_buffer_is_owned_by_us(context))
+    {
+        bo_free_buffer(&context->output_buffer);
+    }
+    free((void*)context);
 }
 
 char* bo_unescape_string(char* str)

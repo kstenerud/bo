@@ -92,9 +92,9 @@ Determines in which order bits and bytes are encoded:
 
 #### Examples
 
-  * ih2l: Input type hexadecimal encoded integer, 2 bytes per value, little endian
-  * io4b: Input type octal encoded integer, 4 bytes per value, big endian
-  * if4l: Input type floating point, 4 bytes per value, little endian
+  * `ih2l`: Input type hexadecimal encoded integer, 2 bytes per value, little endian
+  * `io4b`: Input type octal encoded integer, 4 bytes per value, big endian
+  * `if4l`: Input type floating point, 4 bytes per value, little endian
 
 
 ### Output Specifier
@@ -129,8 +129,8 @@ For floating point types, zeroes are appended until the fractional portion has t
 
 #### Examples
 
-  * oi4l1: Interpret data as 4-byte integers and output in base 10 with minimum 1 digit (i.e. no zero padding)
-  * of8l10: Interpret data as 8-byte floats and output with minimum 10 digits after the decimal point.
+  * `oi4l1`: Interpret data as 4-byte integers and output in base 10 with minimum 1 digit (i.e. no zero padding)
+  * `of8l10`: Interpret data as 8-byte floats and output with minimum 10 digits after the decimal point.
 
 
 

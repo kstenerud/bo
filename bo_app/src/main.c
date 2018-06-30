@@ -41,7 +41,8 @@ static int process_stream(const char* input_filename, const char* output_filenam
 		PERROR_EXIT("Could not open %s for writing", output_filename);
 	}
 
-	return bo_process_stream(in_stream, out_stream, on_error) ? 0 : 1;
+	void* context = bo_new_stream_context(out_stream, on_error);
+	return bo_process_stream(in_stream, context) ? 0 : 1;
 }
 
 static int process_string(const char* input, const char* output_filename)
@@ -55,7 +56,8 @@ static int process_string(const char* input, const char* output_filename)
 	int returnval = 0;
 	const int buffer_size = 100000;
 	char* buffer = malloc(buffer_size);
-	int bytes_processed = bo_process_string(input, buffer, buffer_size-1, on_error);
+	void* context = bo_new_buffer_context((uint8_t*)buffer, buffer_size, on_error);
+	int bytes_processed = bo_process_string(input, context);
 	if(bytes_processed > 0)
 	{
 		int bytes_written = fwrite(buffer, 1, bytes_processed, out_stream);
@@ -81,8 +83,9 @@ int main(int argc, char* argv[])
 {
 	const char* input_filename = NULL;
 	const char* output_filename = NULL;
+	const char* output_config = NULL;
 	int opt;
-    while((opt = getopt (argc, argv, "f:o:")) != -1)
+    while((opt = getopt (argc, argv, "f:o:b:")) != -1)
     {
     	switch(opt)
         {
@@ -91,6 +94,9 @@ int main(int argc, char* argv[])
         		break;
 		    case 'o':
         		output_filename = optarg;
+        		break;
+		    case 'b':
+        		output_config = optarg;
         		break;
       		default:
 				print_usage();

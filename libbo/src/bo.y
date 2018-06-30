@@ -23,7 +23,7 @@ void yyerror(const void *scanner, void* context, const char *msg);
     const char* string_v;
 }
 
-%token <string_v> STRING NUMBER INPUT_TYPE OUTPUT_TYPE OUTPUT_BINARY PREFIX SUFFIX PREFIX_SUFFIX UNEXPECTED BAD_DATA
+%token <string_v> STRING NUMBER INPUT_TYPE OUTPUT_TYPE INPUT_BINARY OUTPUT_BINARY PREFIX SUFFIX PREFIX_SUFFIX UNEXPECTED BAD_DATA
 
 %start begin
 
@@ -37,10 +37,11 @@ output_setting: prefix | suffix | prefix_suffix | output_type | output_binary
 
 commands: | commands command
 
-command: string | number | input_type | bad_data
+command: string | number | input_type | input_binary | bad_data
 
 input_type:    INPUT_TYPE    { if(!bo_set_input_type(context, $1)) return -1; }
 output_type:   OUTPUT_TYPE   { if(!bo_set_output_type(context, $1)) return -1; }
+input_binary:  INPUT_BINARY  { if(!bo_set_input_type_binary(context)) return -1; else return EARLY_EXIT_BINARY_MODE_MARKER; }
 output_binary: OUTPUT_BINARY { if(!bo_set_output_type_binary(context)) return -1; }
 prefix:        PREFIX        { if(!bo_set_prefix(context, $1)) return -1; }
 suffix:        SUFFIX        { if(!bo_set_suffix(context, $1)) return -1; }

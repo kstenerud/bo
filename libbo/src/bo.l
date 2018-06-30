@@ -39,6 +39,7 @@ PREFIX_SUFFIX [cs]
 
 i{NUMERIC_TYPE}{WIDTH}{ENDIAN} { yylval->string_v = yytext+1; return INPUT_TYPE; }
 o{NUMERIC_TYPE}{WIDTH}{ENDIAN}{U_INT} { yylval->string_v = yytext+1; return OUTPUT_TYPE; }
+iB { return INPUT_BINARY; }
 oB { return OUTPUT_BINARY; }
 
 p{VALUE_STRING} {
@@ -69,54 +70,50 @@ static char* unescape_unquote_string(char* str)
     return maybe_bad_data_loc;
 }
 
-int bo_process_string(const char* input, char* output, int output_length, error_callback on_error)
+int bo_process_string(const char* input, void* void_context)
 {
-    static const int work_buffer_size = 1600;
-    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, output_length, NULL, on_error);
+    bo_context* context = (bo_context*)void_context;
     yyscan_t scanner;
     if(yylex_init(&scanner) != 0)
     {
-        context.on_error("Could not init scanner");
+        context->on_error("Could not init scanner");
         return -1;
     }
 
     YY_BUFFER_STATE buf = yy_scan_string(input, scanner);
-    bool parse_was_successful = yyparse(scanner, &context) == 0;
-    bool finish_was_successful = bo_finish(&context);
+    bool parse_was_successful = yyparse(scanner, context) == 0;
+    bool finish_was_successful = bo_finish(context);
     yy_delete_buffer(buf, scanner);
     yylex_destroy(scanner);
 
     if(!(parse_was_successful && finish_was_successful))
     {
-        context.on_error("Failed to parse");
+        context->on_error("Failed to parse");
         return -1;
     }
 
-    return context.output_buffer.pos - context.output_buffer.start;
+    return context->output_buffer.pos - context->output_buffer.start;
 }
 
-bool bo_process_stream(FILE* src, FILE* dst, error_callback on_error)
+bool bo_process_stream(FILE* src, void* void_context)
 {
-    static const int work_buffer_size = 1600;
-    uint8_t* output[10000];
-    bo_context context = bo_new_context(work_buffer_size, (uint8_t*)output, sizeof(output), dst, on_error);
-
+    bo_context* context = (bo_context*)void_context;
     yyscan_t scanner;
     if(yylex_init(&scanner) != 0)
     {
-        context.on_error("Could not init scanner");
+        context->on_error("Could not init scanner");
         return false;
     }
 
     yyset_in(src, scanner);
-    yyset_out(dst, scanner);
-    bool parse_was_successful = yyparse(scanner, &context) == 0;
-    bool finish_was_successful = bo_finish(&context);
+    yyset_out(context->output_stream, scanner);
+    bool parse_was_successful = yyparse(scanner, context) == 0;
+    bool finish_was_successful = bo_finish(context);
     yylex_destroy(scanner);
 
     if(!(parse_was_successful && finish_was_successful))
     {
-        context.on_error("Failed to parse");
+        context->on_error("Failed to parse");
         return false;
     }
     return true;

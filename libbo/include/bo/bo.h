@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -20,6 +21,12 @@ const char* bo_version();
  */
 char* bo_unescape_string(char* str);
 
+void* bo_new_buffer_context(uint8_t* output_buffer, int output_buffer_length, error_callback on_error);
+
+void* bo_new_stream_context(FILE* output_stream, error_callback on_error);
+
+void bo_destroy_context(void* context);
+
 /**
  * Process a BO command sequence from a string.
  *
@@ -29,7 +36,7 @@ char* bo_unescape_string(char* str);
  * @param on_error Callback to call when an error occurs.
  * @return The number of bytes written to the output buffer, or -1 if an error occurred.
  */
-int bo_process_string(const char* input, char* output, int output_length, error_callback on_error);
+int bo_process_string(const char* input, void* context);
 
 /**
  * Process a BO command sequence from a stream.
@@ -39,7 +46,7 @@ int bo_process_string(const char* input, char* output, int output_length, error_
  * @param on_error Callback to call when an error occurs.
  * @return True if successful.
  */
-bool bo_process_stream(FILE* src, FILE* dst, error_callback on_error);
+bool bo_process_stream(FILE* src, void* context);
 
 
 #ifdef __cplusplus
