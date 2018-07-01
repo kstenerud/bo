@@ -601,6 +601,7 @@ void* bo_new_stream_context(FILE* output_stream, error_callback on_error)
 
 void bo_destroy_context(void* void_context)
 {
+    bo_flush_output(void_context);
     bo_context* context = (bo_context*)void_context;
     bo_free_buffer(&context->work_buffer);
     if(context_output_buffer_is_owned_by_us(context))

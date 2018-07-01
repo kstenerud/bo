@@ -25,6 +25,9 @@ void* bo_new_buffer_context(uint8_t* output_buffer, int output_buffer_length, er
 
 void* bo_new_stream_context(FILE* output_stream, error_callback on_error);
 
+/**
+ * Flushes a context's output and destroys the context.
+ */
 void bo_destroy_context(void* context);
 
 /**
