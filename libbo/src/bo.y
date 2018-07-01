@@ -29,15 +29,15 @@ void yyerror(const void *scanner, void* context, const char *msg);
 
 %%
 
-begin: output_settings commands
-
-output_settings: | output_settings output_setting
-
-output_setting: prefix | suffix | prefix_suffix | output_type | output_binary
+begin: commands
 
 commands: | commands command
 
-command: string | number | input_type | input_binary | bad_data
+command: output_setting | input_setting | string | number | bad_data
+
+output_setting: prefix | suffix | prefix_suffix | output_type | output_binary
+
+input_setting: input_type | input_binary
 
 input_type:    INPUT_TYPE    { if(!bo_set_input_type(context, $1)) return -1; }
 output_type:   OUTPUT_TYPE   { if(!bo_set_output_type(context, $1)) return -1; }
