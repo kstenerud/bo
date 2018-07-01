@@ -67,26 +67,35 @@ FILE* new_input_stream(const char* filename)
 	return stream;
 }
 
-static void teardown(void* context, FILE* in_stream, FILE* out_stream)
+void close_stream(FILE* stream)
+{
+	if(stream == NULL || stream == stdin || stream == stdout)
+	{
+		return;
+	}
+
+	fclose(stream);
+}
+
+static void teardown(void* context, FILE* out_stream, const char** in_filenames, int in_filenames_count)
 {
 	if(context != NULL)
 	{
 		bo_destroy_context(context);
 	}
-	if(in_stream != NULL && in_stream != stdin)
+	close_stream(out_stream);
+	for(int i = 0; i < in_filenames_count; i++)
 	{
-		fclose(in_stream);
-	}
-	if(out_stream != NULL && out_stream != stdout)
-	{
-		fclose(out_stream);
+		free((void*)in_filenames[i]);
 	}
 }
 
 int main(int argc, char* argv[])
 {
 	void* context = NULL;
-	FILE* in_stream = NULL;
+	const int max_file_count = 1000;
+	const char* in_filenames[max_file_count];
+	int in_file_count = 0;
 	FILE* out_stream = stdout;
 	int opt;
     while((opt = getopt (argc, argv, "i:o:")) != -1)
@@ -94,7 +103,12 @@ int main(int argc, char* argv[])
     	switch(opt)
         {
 		    case 'i':
-        		in_stream = new_input_stream(optarg);
+		    	if(in_file_count >= max_file_count)
+		    	{
+					fprintf(stderr, "Too many input files. Maximum allowed is %d.\n", max_file_count);
+					return 1;
+		    	}
+		    	in_filenames[in_file_count++] = strdup(optarg);
         		break;
 		    case 'o':
 		    	out_stream = new_output_stream(optarg);
@@ -106,7 +120,7 @@ int main(int argc, char* argv[])
 	}
 	const char* in_string = optind < argc ? argv[optind] : NULL;
 
-	if(in_string == NULL && in_stream == NULL)
+	if(in_string == NULL && in_file_count == 0)
 	{
 		fprintf(stderr, "Must specify input string and/or input stream\n");
 		goto failed;
@@ -119,16 +133,22 @@ int main(int argc, char* argv[])
 		goto failed;
 	}
 
-	if(in_stream != NULL && !bo_process_stream(in_stream, context))
+	for(int i = 0; i < in_file_count; i++)
 	{
-		goto failed;
+		FILE* in_stream = new_input_stream(in_filenames[i]);
+		bool result = bo_process_stream(in_stream, context);
+		close_stream(in_stream);
+		if(!result)
+		{
+			goto failed;
+		}
 	}
 
-	teardown(context, in_stream, out_stream);
+	teardown(context, out_stream, in_filenames, in_file_count);
 	return 0;
 
 failed:
     printf("failed\n");fflush(stdout);
-	teardown(context, in_stream, out_stream);
+	teardown(context, out_stream, in_filenames, in_file_count);
 	return 1;
 }
