@@ -253,7 +253,7 @@ static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* ds
 
 static bool flush_buffer(bo_context* context)
 {
-	if(context->work_buffer.start == NULL)
+	if(context->work_buffer.start == NULL || context->work_buffer.pos == context->work_buffer.start)
 	{
 		return true;
 	}

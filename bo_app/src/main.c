@@ -118,9 +118,9 @@ int main(int argc, char* argv[])
 				return 1;
       	}
 	}
-	const char* in_string = optind < argc ? argv[optind] : NULL;
+	bool has_args = optind < argc;
 
-	if(in_string == NULL && in_file_count == 0)
+	if(!has_args && in_file_count == 0)
 	{
 		fprintf(stderr, "Must specify input string and/or input stream\n");
 		goto failed;
@@ -128,9 +128,12 @@ int main(int argc, char* argv[])
 
 	context = bo_new_stream_context(out_stream, on_error);
 
-	if(in_string != NULL && bo_process_string(in_string, context) < 0)
+	for(int i = optind; i < argc; i++)
 	{
-		goto failed;
+		if(bo_process_string(argv[i], context) < 0)
+		{
+			goto failed;
+		}
 	}
 
 	for(int i = 0; i < in_file_count; i++)
