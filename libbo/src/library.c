@@ -164,6 +164,9 @@ static string_printer get_string_printer(bo_context* context)
     		return NULL;
     	case TYPE_STRING:
 			context->on_error("\"String\" is not a valid output format");
+    	case TYPE_NONE:
+			context->on_error("You must set an output data type before passing data");
+			return NULL;
 		default:
 			context->on_error("%d: Unknown data type", context->output.data_type);
 			return NULL;
