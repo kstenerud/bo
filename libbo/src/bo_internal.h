@@ -92,7 +92,6 @@ bool bo_set_prefix(bo_context* context, const char* string_value);
 bool bo_set_suffix(bo_context* context, const char* string_value);
 bool bo_set_prefix_suffix(bo_context* context, const char* string_value);
 
-bool bo_finish(bo_context* context);
 
 
 #ifdef __cplusplus

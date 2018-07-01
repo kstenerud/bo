@@ -147,6 +147,11 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	if(bo_flush_output(context) < 0)
+	{
+		goto failed;
+	}
+
 	teardown(context, out_stream, in_filenames, in_file_count);
 	return 0;
 

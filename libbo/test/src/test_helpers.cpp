@@ -32,10 +32,12 @@ void assert_conversion(const char* input, const char* expected_output)
 	char buffer[10000];
 	void* context = bo_new_buffer_context((uint8_t*)buffer, sizeof(buffer), on_error);
 	int bytes_written = bo_process_string(input, context);
+	int bytes_flushed = bo_flush_output(context);
 	bo_destroy_context(context);
 	ASSERT_GE(bytes_written, 0);
+	ASSERT_GE(bytes_flushed, 0);
 	ASSERT_FALSE(has_errors());
-	buffer[bytes_written] = 0;
+	buffer[bytes_written + bytes_flushed] = 0;
 	ASSERT_STREQ(expected_output, buffer);
 }
 
@@ -45,7 +47,9 @@ void assert_failed_conversion(int buffer_length, const char* input)
 	char buffer[buffer_length];
 	void* context = bo_new_buffer_context((uint8_t*)buffer, sizeof(buffer), on_error);
 	int bytes_written = bo_process_string(input, context);
+	int bytes_flushed = bo_flush_output(context);
+	bool is_successful = bytes_written >= 0 && bytes_flushed >= 0;
 	bo_destroy_context(context);
-	ASSERT_LT(bytes_written, 0);
+	ASSERT_FALSE(is_successful);
 	ASSERT_TRUE(has_errors());
 }

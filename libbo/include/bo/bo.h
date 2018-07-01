@@ -31,9 +31,7 @@ void bo_destroy_context(void* context);
  * Process a BO command sequence from a string.
  *
  * @param input The sequence to parse.
- * @param output A buffer to hold the result.
- * @param output_length The length of the output buffer.
- * @param on_error Callback to call when an error occurs.
+ * @param context The context object.
  * @return The number of bytes written to the output buffer, or -1 if an error occurred.
  */
 int bo_process_string(const char* input, void* context);
@@ -42,12 +40,19 @@ int bo_process_string(const char* input, void* context);
  * Process a BO command sequence from a stream.
  *
  * @param src The stream to read from.
- * @param dst The stream to write to.
- * @param on_error Callback to call when an error occurs.
+ * @param context The context object.
  * @return True if successful.
  */
 bool bo_process_stream(FILE* src, void* context);
 
+/**
+ * Flush the output stream.
+ * You need to do this to get the last kb or so of output.
+ *
+ * @param context The context object.
+ * @return the number of bytes flushed, or -1 if an error occurred.
+ */
+int bo_flush_output(void* context);
 
 #ifdef __cplusplus
 }

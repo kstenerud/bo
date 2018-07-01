@@ -251,11 +251,11 @@ static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* ds
     return (uint8_t*)dst_pos - dst;
 }
 
-static bool flush_buffer(bo_context* context)
+static int flush_buffer(bo_context* context)
 {
 	if(context->work_buffer.start == NULL || context->work_buffer.pos == context->work_buffer.start)
 	{
-		return true;
+		return 0;
 	}
 
 	int work_filled = context->work_buffer.pos - context->work_buffer.start;
@@ -265,7 +265,7 @@ static bool flush_buffer(bo_context* context)
 	if(used_bytes < 0)
     {
 		// Assume output() reported the error.
-    	return false;
+    	return -1;
     }
     context->output_buffer.pos += used_bytes;
 	context->work_buffer.pos = context->work_buffer.start;
@@ -278,11 +278,11 @@ static bool flush_buffer(bo_context* context)
         if(bytes_written != bytes_to_write)
         {
             perror("Error writing to output stream");
-            return false;
+            return -1;
         }
     }
 
-    return true;
+    return used_bytes;
 }
 
 static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
@@ -293,7 +293,7 @@ static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
     {
 	    memcpy(context->work_buffer.pos, ptr, remaining);
 	    context->work_buffer.pos += remaining;
-	    if(!flush_buffer(context))
+	    if(flush_buffer(context) < 0)
 	    {
 			// Assume flush_buffer() reported the error.
 	    	return false;
@@ -305,7 +305,7 @@ static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
     context->work_buffer.pos += length;
     if(remaining - length < 16)
     {
-        return flush_buffer(context);
+        return flush_buffer(context) >= 0;
     }
     return true;
 }
@@ -459,9 +459,9 @@ bool bo_on_number(bo_context* context, const char* string_value)
     }
 }
 
-bool bo_finish(bo_context* context)
+int bo_flush_output(void* void_context)
 {
-    return flush_buffer(context);
+    return flush_buffer((bo_context*)void_context);
 }
 
 bool bo_set_input_type(bo_context* context, const char* string_value)
@@ -639,10 +639,7 @@ bool bo_process_stream_as_binary(FILE* src, bo_context* context)
         	return false;
         }
     } while(bytes_read == bytes_to_read);
-    if(!bo_finish(context))
-    {
-    	return false;
-    }
+
     return true;
 }
 

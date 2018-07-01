@@ -82,14 +82,13 @@ int bo_process_string(const char* input, void* void_context)
 
     YY_BUFFER_STATE buf = yy_scan_string(input, scanner);
     int parse_result = yyparse(scanner, context);
-    bool finish_was_successful = bo_finish(context);
     yy_delete_buffer(buf, scanner);
     yylex_destroy(scanner);
 
     bool parse_was_successful = (parse_result == 0 || parse_result == EARLY_EXIT_BINARY_MODE_MARKER);
-    if(!(parse_was_successful && finish_was_successful))
+    if(!parse_was_successful)
     {
-        context->on_error("Failed to parse");
+        context->on_error("Failed to parse (result code %d)", parse_result);
         return -1;
     }
 
@@ -115,16 +114,15 @@ bool bo_process_stream(FILE* src, void* void_context)
     yyset_in(src, scanner);
     yyset_out(context->output_stream, scanner);
     int parse_result = yyparse(scanner, context);
-    bool finish_was_successful = bo_finish(context);
     yylex_destroy(scanner);
 
     bool parse_was_successful = (parse_result == 0 || parse_result == EARLY_EXIT_BINARY_MODE_MARKER);
-
-    if(!(parse_was_successful && finish_was_successful))
+    if(!parse_was_successful)
     {
-        context->on_error("Failed to parse");
+        context->on_error("Failed to parse (result code %d)", parse_result);
         return false;
     }
+
     return true;
 }
 
