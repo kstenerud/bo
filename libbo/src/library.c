@@ -4,7 +4,6 @@
 #include <memory.h>
 
 
-#define WORK_BUFFER_SIZE 1600
 
 static void byte_swap(uint8_t* dst, uint8_t* src, int length)
 {
@@ -614,6 +613,34 @@ void bo_destroy_context(void* void_context)
 		free((void*)context->output.suffix);
 	}
     free((void*)context);
+}
+
+bool bo_process_stream_as_binary(FILE* src, bo_context* context)
+{
+    uint8_t buffer[WORK_BUFFER_SIZE / 2];
+    const size_t bytes_to_read = sizeof(buffer);
+    size_t bytes_read;
+    do
+    {
+        bytes_read = fread(buffer, 1, bytes_to_read, src);
+        if(bytes_read != bytes_to_read)
+        {
+            if(ferror(src))
+            {
+            	context->on_error("Error reading file");
+                return false;
+            }
+        }
+        if(!add_bytes(context, buffer, bytes_read))
+        {
+        	return false;
+        }
+    } while(bytes_read == bytes_to_read);
+    if(!bo_finish(context))
+    {
+    	return false;
+    }
+    return true;
 }
 
 char* bo_unescape_string(char* str)

@@ -99,6 +99,12 @@ int bo_process_string(const char* input, void* void_context)
 bool bo_process_stream(FILE* src, void* void_context)
 {
     bo_context* context = (bo_context*)void_context;
+
+    if(context->output.data_type == TYPE_BINARY)
+    {
+        return bo_process_stream_as_binary(src, context);
+    }
+
     yyscan_t scanner;
     if(yylex_init(&scanner) != 0)
     {

@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
 
 	context = bo_new_stream_context(out_stream, on_error);
 
-	if(in_string != NULL && bo_process_string(in_string, context) != 0)
+	if(in_string != NULL && bo_process_string(in_string, context) < 0)
 	{
 		goto failed;
 	}
