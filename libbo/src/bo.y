@@ -48,8 +48,8 @@ suffix:        SUFFIX        { if(!bo_set_suffix(context, $1)) return -1; }
 prefix_suffix: PREFIX_SUFFIX { if(!bo_set_prefix_suffix(context, $1)) return -1; }
 number:        NUMBER        { if(!bo_on_number(context, $1)) return -1; }
 string:        STRING        { if(!bo_on_string(context, $1)) return -1; }
-bad_data:      UNEXPECTED    { context->on_error("Unexpected token: %s", $1); return -1; }
-             | BAD_DATA      { context->on_error("Bad encoding: %s", $1); return -1; }
+bad_data:      UNEXPECTED    { bo_notify_error(context, "Unexpected token: %s", $1); return -1; }
+             | BAD_DATA      { bo_notify_error(context, "Bad encoding: %s", $1); return -1; }
 
 %%
 
