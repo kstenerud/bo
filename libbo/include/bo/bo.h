@@ -13,14 +13,6 @@ typedef void (*error_callback)(const char* fmt, ...);
 
 const char* bo_version();
 
-/**
- * Escapes a string in-place (modifies the original string).
- *
- * @param str The string to escape (this string may get modified).
- * @return pointer to the offending character on failure, pointer to the end of the string (\0) on success.
- */
-char* bo_unescape_string(char* str);
-
 void* bo_new_buffer_context(uint8_t* output_buffer, int output_buffer_length, error_callback on_error);
 
 void* bo_new_stream_context(FILE* output_stream, error_callback on_error);
@@ -56,6 +48,7 @@ bool bo_process_stream(FILE* src, void* context);
  * @return the number of bytes flushed, or -1 if an error occurred.
  */
 int bo_flush_output(void* context);
+
 
 #ifdef __cplusplus
 }

@@ -92,6 +92,14 @@ bool bo_set_prefix(bo_context* context, const char* string_value);
 bool bo_set_suffix(bo_context* context, const char* string_value);
 bool bo_set_prefix_suffix(bo_context* context, const char* string_value);
 
+/**
+ * Escapes a string in-place (modifies the original string).
+ *
+ * @param str The string to escape (this string may get modified).
+ * @return pointer to the offending character on failure, pointer to the end of the string (\0) on success.
+ */
+char* bo_unescape_string(char* str);
+
 
 
 #ifdef __cplusplus
