@@ -6,12 +6,26 @@
 #include <errno.h>
 
 
+// -------------
+// Configuration
+// -------------
+
+// The work buffer holds binary data that will be converted to whatever output format.
+// For best results, keep this a multiple of 16.
+#define WORK_BUFFER_SIZE 1600
+
 // An overhead size of 32 ensures that for object sizes up to 128 bits,
 // there's always room for 128 bits of zero filling at the end.
 #define WORK_BUFFER_OVERHEAD_SIZE 32
 
 // Use an overhead value large enough that the string printers won't blast past it in a single write.
 #define OUTPUT_BUFFER_OVERHEAD_SIZE 100
+
+
+
+// ---------------
+// Error Reporting
+// ---------------
 
 void bo_notify_error(bo_context* context, char* fmt, ...)
 {
@@ -50,23 +64,21 @@ static void bo_notify_posix_error(bo_context* context, char* fmt, ...)
     context->on_error(context->user_data, buffer);
 }
 
-static bool is_high_water(bo_buffer* buffer)
-{
-    return buffer->pos >= buffer->high_water;
-}
 
-static void buffer_clear(bo_buffer* buffer)
-{
-    buffer->pos = buffer->start;
-}
 
-static void byte_swap(uint8_t* dst, uint8_t* src, int length)
+// ---------------
+// String Printers
+// ---------------
+
+static inline void byte_swap(uint8_t* dst, uint8_t* src, int length)
 {
 	for(int i = 0; i < length; i++)
 	{
 		dst[i] = src[length - i - 1];
 	}
 }
+
+typedef int (*string_printer)(uint8_t* src, char* dst, int text_width, bo_endianness endianness);
 
 // Force the compiler to generate handler code for unaligned accesses.
 #define DEFINE_SAFE_STRUCT(NAME, TYPE) typedef struct __attribute__((__packed__)) {TYPE contents;} NAME
@@ -140,92 +152,201 @@ DEFINE_FLOAT_STRING_PRINTER(float, float, 8, f)
 // TODO: decimal-8
 // TODO: decimal-16
 
-typedef int (*string_printer)(uint8_t* src, char* dst, int text_width, bo_endianness endianness);
-
 static string_printer get_string_printer(bo_context* context)
 {
-	switch(context->output.data_type)
-	{
-	    case TYPE_INT:
-	    {
-	    	switch(context->output.data_width)
-	    	{
-	    		case 1: return string_print_int_1;
-	    		case 2: return string_print_int_2;
-	    		case 4: return string_print_int_4;
-	    		case 8: return string_print_int_8;
-	    		case 16:
-	    			bo_notify_error(context, "TODO: INT 16 not implemented");
-	    			return NULL;
-	    		default:
-	    			bo_notify_error(context, "%d: invalid data width", context->output.data_width);
-	    			return NULL;
-	    	}
-	    }
-	    case TYPE_HEX:
-	    {
-	    	switch(context->output.data_width)
-	    	{
-	    		case 1: return string_print_hex_1;
-	    		case 2: return string_print_hex_2;
-	    		case 4: return string_print_hex_4;
-	    		case 8: return string_print_hex_8;
-	    		case 16:
-	    			bo_notify_error(context, "TODO: HEX 16 not implemented");
-	    			return NULL;
-	    		default:
-	    			bo_notify_error(context, "%d: invalid data width", context->output.data_width);
-	    			return NULL;
-	    	}
-	    }
-    	case TYPE_OCTAL:
-	    {
-	    	switch(context->output.data_width)
-	    	{
-	    		case 1: return string_print_octal_1;
-	    		case 2: return string_print_octal_2;
-	    		case 4: return string_print_octal_4;
-	    		case 8: return string_print_octal_8;
-	    		case 16:
-	    			bo_notify_error(context, "TODO: OCTAL 16 not implemented");
-	    			return NULL;
-	    		default:
-	    			bo_notify_error(context, "%d: invalid data width", context->output.data_width);
-	    			return NULL;
-	    	}
-	    }
-    	case TYPE_BOOLEAN:
-			bo_notify_error(context, "TODO: BOOLEAN not implemented");
-    		return NULL;
-    	case TYPE_FLOAT:
-    	{
-	    	switch(context->output.data_width)
-	    	{
-	    		case 2:
-	    			bo_notify_error(context, "TODO: FLOAT 2 not implemented");
-	    			return NULL;
-	    		case 4: return string_print_float_4;
-	    		case 8: return string_print_float_8;
-	    		case 16:
-	    			bo_notify_error(context, "TODO: FLOAT 16 not implemented");
-	    			return NULL;
-	    		default:
-	    			bo_notify_error(context, "%d: invalid data width", context->output.data_width);
-	    			return NULL;
-	    	}
-	    }
-    	case TYPE_DECIMAL:
-			bo_notify_error(context, "TODO: DECIMAL not implemented");
-    		return NULL;
-    	case TYPE_STRING:
-			bo_notify_error(context, "\"String\" is not a valid output format");
-    	case TYPE_NONE:
-			bo_notify_error(context, "You must set an output data type before passing data");
-			return NULL;
-		default:
-			bo_notify_error(context, "%d: Unknown data type", context->output.data_type);
-			return NULL;
-	}
+    switch(context->output.data_type)
+    {
+        case TYPE_INT:
+        {
+            switch(context->output.data_width)
+            {
+                case 1: return string_print_int_1;
+                case 2: return string_print_int_2;
+                case 4: return string_print_int_4;
+                case 8: return string_print_int_8;
+                case 16:
+                    bo_notify_error(context, "TODO: INT 16 not implemented");
+                    return NULL;
+                default:
+                    bo_notify_error(context, "%d: invalid data width", context->output.data_width);
+                    return NULL;
+            }
+        }
+        case TYPE_HEX:
+        {
+            switch(context->output.data_width)
+            {
+                case 1: return string_print_hex_1;
+                case 2: return string_print_hex_2;
+                case 4: return string_print_hex_4;
+                case 8: return string_print_hex_8;
+                case 16:
+                    bo_notify_error(context, "TODO: HEX 16 not implemented");
+                    return NULL;
+                default:
+                    bo_notify_error(context, "%d: invalid data width", context->output.data_width);
+                    return NULL;
+            }
+        }
+        case TYPE_OCTAL:
+        {
+            switch(context->output.data_width)
+            {
+                case 1: return string_print_octal_1;
+                case 2: return string_print_octal_2;
+                case 4: return string_print_octal_4;
+                case 8: return string_print_octal_8;
+                case 16:
+                    bo_notify_error(context, "TODO: OCTAL 16 not implemented");
+                    return NULL;
+                default:
+                    bo_notify_error(context, "%d: invalid data width", context->output.data_width);
+                    return NULL;
+            }
+        }
+        case TYPE_BOOLEAN:
+            bo_notify_error(context, "TODO: BOOLEAN not implemented");
+            return NULL;
+        case TYPE_FLOAT:
+        {
+            switch(context->output.data_width)
+            {
+                case 2:
+                    bo_notify_error(context, "TODO: FLOAT 2 not implemented");
+                    return NULL;
+                case 4: return string_print_float_4;
+                case 8: return string_print_float_8;
+                case 16:
+                    bo_notify_error(context, "TODO: FLOAT 16 not implemented");
+                    return NULL;
+                default:
+                    bo_notify_error(context, "%d: invalid data width", context->output.data_width);
+                    return NULL;
+            }
+        }
+        case TYPE_DECIMAL:
+            bo_notify_error(context, "TODO: DECIMAL not implemented");
+            return NULL;
+        case TYPE_STRING:
+            bo_notify_error(context, "\"String\" is not a valid output format");
+        case TYPE_NONE:
+            bo_notify_error(context, "You must set an output data type before passing data");
+            return NULL;
+        default:
+            bo_notify_error(context, "%d: Unknown data type", context->output.data_type);
+            return NULL;
+    }
+}
+
+
+
+// -------
+// Buffers
+// -------
+
+bo_buffer bo_new_buffer(int size, int overhead)
+{
+    uint8_t* memory = malloc(size + overhead);
+    bo_buffer buffer =
+    {
+        .start = memory,
+        .pos = memory,
+        .end = memory + size + overhead,
+        .high_water = memory + size,
+    };
+    return buffer;
+}
+
+void bo_free_buffer(bo_buffer* buffer)
+{
+    if(buffer->start != NULL)
+    {
+        free(buffer->start);
+        buffer->start = buffer->pos = buffer->end = NULL;
+    }
+}
+
+static bool is_high_water(bo_buffer* buffer)
+{
+    return buffer->pos >= buffer->high_water;
+}
+
+static void clear_buffer(bo_buffer* buffer)
+{
+    buffer->pos = buffer->start;
+}
+
+
+
+// --------------------------
+// File Output Stream Wrapper
+// --------------------------
+
+typedef struct
+{
+    bo_context* context;
+    FILE* output_stream;
+    error_callback on_error;
+    void* user_data;
+} wrapped_user_data;
+
+static bool file_on_output(void* void_user_data, char* data, int length)
+{
+    wrapped_user_data* wrapped = (wrapped_user_data*)void_user_data;
+    int bytes_written = fwrite(data, 1, length, wrapped->output_stream);
+    if(bytes_written != length)
+    {
+        bo_notify_posix_error(wrapped->context, "Error writing to output stream");
+        return false;
+    }
+    return true;
+}
+
+static void file_on_error(void* void_user_data, const char* message)
+{
+    wrapped_user_data* wrapped = (wrapped_user_data*)void_user_data;
+    wrapped->on_error(wrapped->user_data, message);
+}
+
+
+
+// --------
+// Internal
+// --------
+
+static void* new_context(void* user_data, output_callback on_output, error_callback on_error)
+{
+    bo_context context =
+    {
+        .work_buffer = bo_new_buffer(WORK_BUFFER_SIZE, WORK_BUFFER_OVERHEAD_SIZE),
+        .output_buffer = bo_new_buffer(WORK_BUFFER_SIZE * 10, OUTPUT_BUFFER_OVERHEAD_SIZE),
+        .input =
+        {
+            .data_type = TYPE_NONE,
+            .data_width = 0,
+        },
+        .output =
+        {
+            .data_type = TYPE_NONE,
+            .data_width = 0,
+            .text_width = 0,
+            .prefix = NULL,
+            .suffix = NULL,
+            .endianness = BO_ENDIAN_LITTLE,
+        },
+        .on_error = on_error,
+        .on_output = on_output,
+        .user_data = user_data,
+    };
+
+    bo_context* heap_context = (bo_context*)malloc(sizeof(context));
+    *heap_context = context;
+    return heap_context;
+}
+
+static bool context_user_data_is_owned_by_us(bo_context* context)
+{
+    return context->on_output == file_on_output;
 }
 
 static inline bool can_input_numbers(bo_context* context)
@@ -233,28 +354,29 @@ static inline bool can_input_numbers(bo_context* context)
     return context->input.data_type != TYPE_NONE;
 }
 
-static void clear_output_buffer(bo_context* context)
+static int trim_length_to_object_boundary(int length, int object_size_in_bytes)
 {
-    buffer_clear(&context->output_buffer);
+    return length - (length % object_size_in_bytes);
 }
+
+
+
+// ---------------
+// Buffer Flushing
+// ---------------
 
 static bool flush_output_buffer(bo_context* context)
 {
     bool result = context->on_output(context->user_data, context->output_buffer.start, context->output_buffer.pos - context->output_buffer.start);
-    clear_output_buffer(context);
+    clear_buffer(&context->output_buffer);
     return result;
 }
 
 static bool flush_work_buffer_binary(bo_context* context)
 {
     bool result = context->on_output(context->user_data, context->work_buffer.start, context->work_buffer.pos - context->work_buffer.start);
-    buffer_clear(&context->work_buffer);
+    clear_buffer(&context->work_buffer);
     return result;
-}
-
-static int trim_length_to_object_boundary(int length, int object_size_in_bytes)
-{
-    return length - (length % object_size_in_bytes);
 }
 
 static bool flush_work_buffer(bo_context* context, bool is_complete_flush)
@@ -289,7 +411,7 @@ static bool flush_work_buffer(bo_context* context, bool is_complete_flush)
         work_length = trim_length_to_object_boundary(work_length, bytes_per_entry);
     }
 
-    clear_output_buffer(context);
+    clear_buffer(&context->output_buffer);
     bo_buffer* out = &context->output_buffer;
     uint8_t* end = context->work_buffer.start + work_length;
 
@@ -326,113 +448,11 @@ static bool flush_work_buffer(bo_context* context, bool is_complete_flush)
     return true;
 }
 
-// static int output(bo_context* context, uint8_t* src, int src_length, uint8_t* dst, int dst_length)
-// {
-// 	if(src_length > dst_length)
-// 	{
-// 		bo_notify_error(context, "Not enough room in destination buffer");
-// 		return -1;
-// 	}
 
-// 	if(context->output.data_type == TYPE_BINARY)
-// 	{
-// 		memcpy(dst, src, src_length);
-// 		return src_length;
-// 	}
 
-// 	char buffer[100];
-// 	if(context->output.prefix != NULL)
-// 	{
-// 		strcpy(buffer, context->output.prefix);
-// 	}
-// 	else
-// 	{
-// 		buffer[0] = 0;
-// 	}
-// 	char* const buffer_start = buffer + strlen(buffer);
-
-// 	const uint8_t* const dst_end = dst + dst_length;
-// 	int bytes_per_entry = context->output.data_width;
-// 	string_printer string_print = get_string_printer(context);
-// 	if(string_print == NULL)
-// 	{
-// 		// Assume string_print() reported the error.
-// 		return -1;
-// 	}
-
-// 	uint8_t* dst_pos = dst;
-//     for(int i = 0; i < src_length; i += bytes_per_entry)
-//     {
-//     	uint8_t overflow_buffer[17];
-//     	uint8_t* src_ptr = src + i;
-//     	if(src_length - i < bytes_per_entry)
-//     	{
-//     		memset(overflow_buffer, 0, sizeof(overflow_buffer));
-//     		memcpy(overflow_buffer, src_ptr, src_length - i);
-//     		src_ptr = overflow_buffer;
-//     	}
-
-//     	int bytes_written = string_print(src_ptr, buffer_start, context->output.text_width, context->output.endianness);
-//     	if(bytes_written < 0)
-//     	{
-//     		bo_notify_error(context, "Error writing string value");
-//     		return -1;
-//     	}
-
-//     	char* buffer_pos = buffer_start + bytes_written;
-//         if(i < src_length - bytes_per_entry && context->output.suffix != NULL)
-//         {
-// 	    	strcpy(buffer_pos, context->output.suffix);
-// 	    	buffer_pos += strlen(buffer_pos);
-// 	    }
-
-// 	    int entry_length = buffer_pos - buffer;
-// 	    if(dst_pos + entry_length >= dst_end)
-// 	    {
-// 			bo_notify_error(context, "Not enough room in destination buffer");
-// 	    	return -1;
-// 	    }
-
-// 	    memcpy(dst_pos, buffer, entry_length + 1);
-//         dst_pos += entry_length;
-//     }
-//     return (uint8_t*)dst_pos - dst;
-// }
-
-// static bool flush_buffer(bo_context* context)
-// {
-//     // TODO: Flush to a data width
-// 	if(context->work_buffer.start == NULL || context->work_buffer.pos == context->work_buffer.start)
-// 	{
-// 		return true;
-// 	}
-
-// 	int work_filled = context->work_buffer.pos - context->work_buffer.start;
-// 	int output_remaining = context->output_buffer.end - context->output_buffer.pos;
-// 	int used_bytes = output(context, context->work_buffer.start, work_filled, context->output_buffer.pos, output_remaining);
-
-// 	if(used_bytes < 0)
-//     {
-// 		// Assume output() reported the error.
-//     	return false;
-//     }
-//     context->output_buffer.pos += used_bytes;
-// 	context->work_buffer.pos = context->work_buffer.start;
-
-//     if(context->output_stream != NULL)
-//     {
-//         int bytes_to_write = context->output_buffer.pos - context->output_buffer.start;
-//         int bytes_written = fwrite(context->output_buffer.start, 1, bytes_to_write, context->output_stream);
-//         context->output_buffer.pos = context->output_buffer.start;
-//         if(bytes_written != bytes_to_write)
-//         {
-//             perror("Error writing to output stream");
-//             return false;
-//         }
-//     }
-
-//     return true;
-// }
+// ------------------
+// Binary Data Adders
+// ------------------
 
 static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
 {
@@ -547,32 +567,116 @@ static bool add_float(bo_context* context, double src_value)
     }
 }
 
-const char* bo_version()
-{
-    return BO_VERSION;
-}
 
-bo_buffer bo_new_buffer(int size, int overhead)
+
+// ------------
+// Internal API
+// ------------
+
+bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream)
 {
-    uint8_t* memory = malloc(size + overhead);
-    bo_buffer buffer =
+    uint8_t buffer[WORK_BUFFER_SIZE / 2];
+    const size_t bytes_to_read = sizeof(buffer);
+    size_t bytes_read;
+    do
     {
-        .start = memory,
-        .pos = memory,
-        .end = memory + size + overhead,
-        .high_water = memory + size,
-    };
-    return buffer;
+        bytes_read = fread(buffer, 1, bytes_to_read, input_stream);
+        if(bytes_read != bytes_to_read)
+        {
+            if(ferror(input_stream))
+            {
+                bo_notify_posix_error(context, "Error reading file");
+                return false;
+            }
+        }
+        if(!add_bytes(context, buffer, bytes_read))
+        {
+            return false;
+        }
+    } while(bytes_read == bytes_to_read);
+
+    return true;
 }
 
-void bo_free_buffer(bo_buffer* buffer)
+char* bo_unescape_string(char* str)
 {
-	if(buffer->start != NULL)
-	{
-	    free(buffer->start);
-    	buffer->start = buffer->pos = buffer->end = NULL;
+    char* write_pos = str;
+    char* read_pos = str;
+    const char* const end_pos = str + strlen(str);
+    while(*read_pos != 0)
+    {
+        char ch = *read_pos++;
+        if(ch == '\\')
+        {
+            char* checkpoint = read_pos - 1;
+            ch = *read_pos++;
+            switch(ch)
+            {
+                case 0:
+                    return checkpoint;
+                case 'r': *write_pos++ = '\r'; break;
+                case 'n': *write_pos++ = '\n'; break;
+                case 't': *write_pos++ = '\t'; break;
+                case '\\': *write_pos++ = '\\'; break;
+                case '\"': *write_pos++ = '\"'; break;
+                case '0': case '1': case '2': case '3':
+                case '4': case '5': case '6': case '7':
+                case '8': case '9': case 'a': case 'b':
+                case 'c': case 'd': case 'e': case 'f':
+                {
+                    char oldch = read_pos[2];
+                    read_pos[2] = 0;
+                    unsigned int decoded = strtoul(read_pos, NULL, 16);
+                    read_pos[2] = oldch;
+                    read_pos += 2;
+                    *write_pos++ = decoded;
+                    break;
+                }
+                case 'u':
+                {
+                    if(read_pos + 4 > end_pos)
+                    {
+                        return checkpoint;
+                    }
+                    char oldch = read_pos[4];
+                    read_pos[4] = 0;
+                    unsigned int codepoint = strtoul(read_pos, NULL, 16);
+                    read_pos[4] = oldch;
+                    read_pos += 4;
+                    if(codepoint <= 0x7f)
+                    {
+                        *write_pos++ = (char)codepoint;
+                        break;
+                    }
+                    if(codepoint <= 0x7ff)
+                    {
+                        *write_pos++ = (char)((codepoint >> 6) | 0xc0);
+                        *write_pos++ = (char)((codepoint & 0x3f) | 0x80);
+                        break;
+                    }
+                    *write_pos++ = (char)((codepoint >> 12) | 0xe0);
+                    *write_pos++ = (char)(((codepoint >> 6) & 0x3f) | 0x80);
+                    *write_pos++ = (char)((codepoint & 0x3f) | 0x80);
+                    break;
+                }
+                default:
+                    return checkpoint;
+            }
+        }
+        else
+        {
+            *write_pos++ = ch;
+        }
     }
+    *write_pos = 0;
+    return write_pos;
 }
+
+
+
+// ----------------
+// Parser Callbacks
+// ----------------
 
 bool bo_on_string(bo_context* context, const char* string)
 {
@@ -617,6 +721,14 @@ bool bo_set_input_type(bo_context* context, const char* string_value)
     return true;
 }
 
+bool bo_set_input_type_binary(bo_context* context)
+{
+    context->input.data_type = TYPE_BINARY;
+    context->input.data_width = 0;
+    context->input.endianness = BO_ENDIAN_LITTLE;
+    return true;
+}
+
 bool bo_set_output_type(bo_context* context, const char* string_value)
 {
     // If the output format changes, everything up to that point must be flushed.
@@ -630,14 +742,6 @@ bool bo_set_output_type(bo_context* context, const char* string_value)
     context->output.endianness = *string_value++;
     context->output.text_width = strtol(string_value, NULL, 10);
 	return true;
-}
-
-bool bo_set_input_type_binary(bo_context* context)
-{
-    context->input.data_type = TYPE_BINARY;
-    context->input.data_width = 0;
-    context->input.endianness = BO_ENDIAN_LITTLE;
-    return true;
 }
 
 bool bo_set_output_type_binary(bo_context* context)
@@ -697,65 +801,15 @@ bool bo_set_prefix_suffix(bo_context* context, const char* string_value)
     return true;
 }
 
-static void* new_context(void* user_data, output_callback on_output, error_callback on_error)
-{
-    bo_context context =
-    {
-        .work_buffer = bo_new_buffer(WORK_BUFFER_SIZE, WORK_BUFFER_OVERHEAD_SIZE),
-        .output_buffer = bo_new_buffer(WORK_BUFFER_SIZE * 10, OUTPUT_BUFFER_OVERHEAD_SIZE),
-        .input =
-        {
-            .data_type = TYPE_NONE,
-            .data_width = 0,
-        },
-        .output =
-        {
-            .data_type = TYPE_NONE,
-            .data_width = 0,
-            .text_width = 0,
-            .prefix = NULL,
-            .suffix = NULL,
-            .endianness = BO_ENDIAN_LITTLE,
-        },
-        .on_error = on_error,
-        .on_output = on_output,
-        .user_data = user_data,
-    };
 
-    bo_context* heap_context = (bo_context*)malloc(sizeof(context));
-    *heap_context = context;
-    return heap_context;
-}
 
-typedef struct
-{
-    bo_context* context;
-    FILE* output_stream;
-    error_callback on_error;
-    void* user_data;
-} wrapped_user_data;
+// ----------
+// Public API
+// ----------
 
-static bool file_on_output(void* void_user_data, char* data, int length)
+const char* bo_version()
 {
-    wrapped_user_data* wrapped = (wrapped_user_data*)void_user_data;
-    int bytes_written = fwrite(data, 1, length, wrapped->output_stream);
-    if(bytes_written != length)
-    {
-        bo_notify_posix_error(wrapped->context, "Error writing to output stream");
-        return false;
-    }
-    return true;
-}
-
-static void file_on_error(void* void_user_data, const char* message)
-{
-    wrapped_user_data* wrapped = (wrapped_user_data*)void_user_data;
-    wrapped->on_error(wrapped->user_data, message);
-}
-
-static bool context_user_data_is_owned_by_us(bo_context* context)
-{
-    return context->on_output == file_on_output;
+    return BO_VERSION;
 }
 
 void* bo_new_callback_context(void* user_data, output_callback on_output, error_callback on_error)
@@ -785,113 +839,14 @@ bool bo_flush_and_destroy_context(void* void_context)
     {
         free(context->user_data);
     }
-	if(context->output.prefix != NULL)
-	{
-		free((void*)context->output.prefix);
-	}
-	if(context->output.suffix != NULL)
-	{
-		free((void*)context->output.suffix);
-	}
+    if(context->output.prefix != NULL)
+    {
+        free((void*)context->output.prefix);
+    }
+    if(context->output.suffix != NULL)
+    {
+        free((void*)context->output.suffix);
+    }
     free((void*)context);
     return is_successful;
-}
-
-bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream)
-{
-    uint8_t buffer[WORK_BUFFER_SIZE / 2];
-    const size_t bytes_to_read = sizeof(buffer);
-    size_t bytes_read;
-    do
-    {
-        bytes_read = fread(buffer, 1, bytes_to_read, input_stream);
-        if(bytes_read != bytes_to_read)
-        {
-            if(ferror(input_stream))
-            {
-            	bo_notify_posix_error(context, "Error reading file");
-                return false;
-            }
-        }
-        if(!add_bytes(context, buffer, bytes_read))
-        {
-        	return false;
-        }
-    } while(bytes_read == bytes_to_read);
-
-    return true;
-}
-
-char* bo_unescape_string(char* str)
-{
-    char* write_pos = str;
-    char* read_pos = str;
-    const char* const end_pos = str + strlen(str);
-    while(*read_pos != 0)
-    {
-        char ch = *read_pos++;
-        if(ch == '\\')
-        {
-            char* checkpoint = read_pos - 1;
-            ch = *read_pos++;
-            switch(ch)
-            {
-                case 0:
-                    return checkpoint;
-                case 'r': *write_pos++ = '\r'; break;
-                case 'n': *write_pos++ = '\n'; break;
-                case 't': *write_pos++ = '\t'; break;
-                case '\\': *write_pos++ = '\\'; break;
-                case '\"': *write_pos++ = '\"'; break;
-                case '0': case '1': case '2': case '3':
-                case '4': case '5': case '6': case '7':
-                case '8': case '9': case 'a': case 'b':
-                case 'c': case 'd': case 'e': case 'f':
-                {
-                	char oldch = read_pos[2];
-                	read_pos[2] = 0;
-                    unsigned int decoded = strtoul(read_pos, NULL, 16);
-                    read_pos[2] = oldch;
-                    read_pos += 2;
-                    *write_pos++ = decoded;
-                    break;
-                }
-                case 'u':
-                {
-                    if(read_pos + 4 > end_pos)
-                    {
-                        return checkpoint;
-                    }
-                    char oldch = read_pos[4];
-                    read_pos[4] = 0;
-                    unsigned int codepoint = strtoul(read_pos, NULL, 16);
-                    read_pos[4] = oldch;
-                    read_pos += 4;
-                    if(codepoint <= 0x7f)
-                    {
-                        *write_pos++ = (char)codepoint;
-                        break;
-                    }
-                    if(codepoint <= 0x7ff)
-                    {
-                        *write_pos++ = (char)((codepoint >> 6) | 0xc0);
-                        *write_pos++ = (char)((codepoint & 0x3f) | 0x80);
-                        break;
-                    }
-                    *write_pos++ = (char)((codepoint >> 12) | 0xe0);
-                    *write_pos++ = (char)(((codepoint >> 6) & 0x3f) | 0x80);
-                    *write_pos++ = (char)((codepoint & 0x3f) | 0x80);
-                    break;
-                }
-                default:
-                    return checkpoint;
-            }
-        }
-        else
-        {
-            *write_pos++ = ch;
-        }
-    }
-    *write_pos = 0;
-    return write_pos;
 }

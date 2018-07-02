@@ -17,7 +17,6 @@ extern "C" {
 
 #define EARLY_EXIT_BINARY_MODE_MARKER 0x1234
 
-#define WORK_BUFFER_SIZE 1600
 
 typedef enum
 {
@@ -81,12 +80,11 @@ typedef struct
 } bo_context;
 
 
-bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, FILE* output_stream, error_callback on_error);
-
 bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream);
 
 bool bo_on_string(bo_context* context, const char* string);
 bool bo_on_number(bo_context* context, const char* string_value);
+
 bool bo_set_input_type(bo_context* context, const char* string_value);
 bool bo_set_output_type(bo_context* context, const char* string_value);
 bool bo_set_input_type_binary(bo_context* context);
