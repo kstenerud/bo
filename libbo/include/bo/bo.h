@@ -9,27 +9,66 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-typedef void (*error_callback)(const char* fmt, ...);
+/**
+ * Callback to notify of new output data.
+ *
+ * @param user_data The user data object that was passed to the context that generated this call.
+ * @param data The data.
+ * @param length The length of the data in bytes.
+ * @return true if the receiver of this message successfully processed it.
+ */
+typedef bool (*output_callback)(void* user_data, char* data, int length);
 
+/**
+ * Callback to notify that an error occured while processing input data.
+ *
+ * @param user_data The user data object that was passed to the context that generated this call.
+ * @param message The error message.
+ */
+typedef void (*error_callback)(void* user_data, const char* message);
+
+/**
+ * Get the bo library version. Bo follows the semantic version format.
+ *
+ * @return The format string.
+ */
 const char* bo_version();
 
-void* bo_new_buffer_context(uint8_t* output_buffer, int output_buffer_length, error_callback on_error);
+/**
+ * Create a new bo context that calls a callback as it processes data.
+ *
+ * @param user_data User-specified contextual data.
+ * @param on_output Called whenever there's processed output data.
+ * @param on_error Called if an error occurs while processing.
+ */
+void* bo_new_callback_context(void* user_data, output_callback on_output, error_callback on_error);
 
-void* bo_new_stream_context(FILE* output_stream, error_callback on_error);
+/**
+ * Create a new bo context that streams to a file.
+ *
+ * @param user_data User-specified contextual data.
+ * @param output_stream The file stream to output processed data to.
+ * @param on_error Called if an error occurs while processing.
+ */
+void* bo_new_stream_context(void* user_data, FILE* output_stream, error_callback on_error);
 
 /**
  * Flushes a context's output and destroys the context.
+ *
+ * @param context The context object.
+ * @return True if flushing was successful. Context destruction succeeds regardless of return value.
  */
-void bo_destroy_context(void* context);
+bool bo_flush_and_destroy_context(void* context);
 
 /**
  * Process a BO command sequence from a string.
  *
  * @param input The sequence to parse.
  * @param context The context object.
- * @return The number of bytes written to the output buffer, or -1 if an error occurred.
+ * @return True if successful.
  */
-int bo_process_string(const char* input, void* context);
+// bool bo_process_data(void* context, const char* data, int length);
+bool bo_process_string(void* void_context, const char* string);
 
 /**
  * Process a BO command sequence from a stream.
@@ -38,16 +77,7 @@ int bo_process_string(const char* input, void* context);
  * @param context The context object.
  * @return True if successful.
  */
-bool bo_process_stream(FILE* src, void* context);
-
-/**
- * Flush the output stream.
- * You need to do this to get the last kb or so of output.
- *
- * @param context The context object.
- * @return the number of bytes flushed, or -1 if an error occurred.
- */
-int bo_flush_output(void* context);
+bool bo_process_stream(void* context, FILE* src);
 
 
 #ifdef __cplusplus

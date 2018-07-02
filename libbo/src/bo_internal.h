@@ -52,6 +52,7 @@ typedef struct
     uint8_t* start;
     uint8_t* end;
     uint8_t* pos;
+    uint8_t* high_water;
 } bo_buffer;
 
 typedef struct
@@ -75,12 +76,14 @@ typedef struct
         bo_endianness endianness;
     } output;
     error_callback on_error;
+    output_callback on_output;
+    void* user_data;
 } bo_context;
 
 
 bo_context bo_new_context(int work_buffer_size, uint8_t* output, int output_length, FILE* output_stream, error_callback on_error);
 
-bool bo_process_stream_as_binary(FILE* src, bo_context* context);
+bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream);
 
 bool bo_on_string(bo_context* context, const char* string);
 bool bo_on_number(bo_context* context, const char* string_value);
@@ -100,6 +103,7 @@ bool bo_set_prefix_suffix(bo_context* context, const char* string_value);
  */
 char* bo_unescape_string(char* str);
 
+void bo_notify_error(bo_context* context, char* fmt, ...);
 
 
 #ifdef __cplusplus

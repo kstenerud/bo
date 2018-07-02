@@ -12,19 +12,14 @@ static void print_usage()
 	printf("Usage: bo <input>\n");
 }
 
-static void on_error(const char* fmt, ...)
+static void on_error(void* user_data, const char* message)
 {
-	if(fmt == NULL || *fmt == 0)
+	if(message == NULL || *message == 0)
 	{
 		return;
 	}
 
-	va_list args;
-	va_start(args, fmt);
-	fprintf(stderr, "Error: ");
-	vfprintf(stderr, fmt, args);
-	fprintf(stderr, "\n");
-	va_end(args);	
+	fprintf(stderr, "Error: %s\n", message);
 }
 
 #define PERROR_EXIT(FMT, ...) do { fprintf(stderr, FMT, __VA_ARGS__); perror(""); exit(1); } while(false)
@@ -81,7 +76,7 @@ static void teardown(void* context, FILE* out_stream, const char** in_filenames,
 {
 	if(context != NULL)
 	{
-		bo_destroy_context(context);
+		bo_flush_and_destroy_context(context);
 	}
 	close_stream(out_stream);
 	for(int i = 0; i < in_filenames_count; i++)
@@ -111,6 +106,7 @@ int main(int argc, char* argv[])
 		    	in_filenames[in_file_count++] = strdup(optarg);
         		break;
 		    case 'o':
+		    	close_stream(out_stream); // Just in case the user does something stupid
 		    	out_stream = new_output_stream(optarg);
         		break;
       		default:
@@ -126,11 +122,11 @@ int main(int argc, char* argv[])
 		goto failed;
 	}
 
-	context = bo_new_stream_context(out_stream, on_error);
+	context = bo_new_stream_context(NULL, out_stream, on_error);
 
 	for(int i = optind; i < argc; i++)
 	{
-		if(bo_process_string(argv[i], context) < 0)
+		if(bo_process_string(context, argv[i]) < 0)
 		{
 			goto failed;
 		}
@@ -139,7 +135,7 @@ int main(int argc, char* argv[])
 	for(int i = 0; i < in_file_count; i++)
 	{
 		FILE* in_stream = new_input_stream(in_filenames[i]);
-		bool result = bo_process_stream(in_stream, context);
+		bool result = bo_process_stream(context, in_stream);
 		close_stream(in_stream);
 		if(!result)
 		{
@@ -147,7 +143,10 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if(bo_flush_output(context) < 0)
+	bool is_flush_successful = bo_flush_and_destroy_context(context);
+	context = NULL;
+
+	if(!is_flush_successful)
 	{
 		goto failed;
 	}

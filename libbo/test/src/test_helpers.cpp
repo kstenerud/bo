@@ -5,15 +5,25 @@
 
 static bool g_has_errors = false;
 
-static void on_error(const char* fmt, ...)
+static void on_error(void* user_data, const char* message)
 {
-	va_list args;
-	va_start(args, fmt);
-	printf("BO Error: ");
-	vprintf(fmt, args);
-	printf("\n");
-	va_end(args);
+	printf("BO Error: %s\n", message);
 	g_has_errors = true;
+}
+
+typedef struct
+{
+	char* pos;
+
+} test_context;
+
+static bool on_output(void* user_data, char* data, int length)
+{
+	test_context* context = (test_context*)user_data;
+	memcpy(context->pos, data, length);
+	context->pos[length] = 0;
+	context->pos += length;
+	return true;
 }
 
 static bool has_errors()
@@ -30,26 +40,31 @@ void assert_conversion(const char* input, const char* expected_output)
 {
 	reset_errors();
 	char buffer[10000];
-	void* context = bo_new_buffer_context((uint8_t*)buffer, sizeof(buffer), on_error);
-	int bytes_written = bo_process_string(input, context);
-	int bytes_flushed = bo_flush_output(context);
-	bo_destroy_context(context);
-	ASSERT_GE(bytes_written, 0);
-	ASSERT_GE(bytes_flushed, 0);
+	test_context test_context =
+	{
+		.pos = buffer,
+	};
+	void* context = bo_new_callback_context(&test_context, on_output, on_error);
+	bool process_success = bo_process_string(context, input);
+	bool flush_success = bo_flush_and_destroy_context(context);
+	ASSERT_TRUE(process_success);
+	ASSERT_TRUE(flush_success);
 	ASSERT_FALSE(has_errors());
-	buffer[bytes_written + bytes_flushed] = 0;
 	ASSERT_STREQ(expected_output, buffer);
 }
 
 void assert_failed_conversion(int buffer_length, const char* input)
 {
 	reset_errors();
-	char buffer[buffer_length];
-	void* context = bo_new_buffer_context((uint8_t*)buffer, sizeof(buffer), on_error);
-	int bytes_written = bo_process_string(input, context);
-	int bytes_flushed = bo_flush_output(context);
-	bool is_successful = bytes_written >= 0 && bytes_flushed >= 0;
-	bo_destroy_context(context);
+	char buffer[10000];
+	test_context test_context =
+	{
+		.pos = buffer,
+	};
+	void* context = bo_new_callback_context(&test_context, on_output, on_error);
+	bool process_success = bo_process_string(context, input);
+	bool flush_success = bo_flush_and_destroy_context(context);
+	bool is_successful = process_success && flush_success;
 	ASSERT_FALSE(is_successful);
 	ASSERT_TRUE(has_errors());
 }
