@@ -4,36 +4,88 @@ Binary Output
 Reinterpret and output binary data.
 
 
+How it Works
+------------
+
+Bo reads data and interprets it according to its current input mode, converting it to a binary format. It then re-interprets the binary data according to the output mode and writes it to output. This allows you to do things such as:
+
+  * Read four 8-bit values and reinterpret them as a 32-bit value.
+  * Input a 64-bit integer and reinterpret as eight 8-bit values.
+  * Build up a binary packet by hand and then print it out to see what it looks like encoded.
+  * Read binary data and reinterpret it as any type with any width, using any endianness.
+  * Output data in "C-friendly" encoding (0xff, 0xff, ...)
+
+
 
 Usage
 -----
 
-### String Mode:
+    bo [options] command ...
 
-In string mode, bo reads commands as a string argument from the command line.
+### Options
 
-    bo [options] command-string
+  * -i [filename]: Read commands/data from a file.
+  * -o [filename]: Write output to a file.
 
-Options:
+Specifying "-" as the filename will cause bo to use stdin (when used with -i) or stdout (when used with -o).
+By default, bo won't read from any files, and will write output to stdout.
 
-  * -o some-file: Send output to some-file instead of to stdout
+Commands may be passed in as command line arguments and as files via the -i switch. You may specify as many -i switches as you like. Bo will first parse all command line arguments, and then all files specified via -i switches.
+
+#### Example
+
+    bo -i file1 -i file2 -i file3 oh2b4 ih2l 1234 "5678 9abc"
+
+This will do the following:
+
+  * set output type (in this case, hex, 2 bytes per value, big endian, minimum 4 characters per value)
+  * set input type (in this case, hex, 2 bytes per value, little endian)
+  * process "1234" as a command (in this case, 16-bit hex because of the input type)
+  * process "5678 9abc" as commands (in this case, 16-bit hex because of the input type)
+  * process file1 as commands
+  * process file2 as commands
+
+See more examples in the **Examples** section.
 
 
-### Stream Mode:
-
-In stream mode, bo reads commands from a file, or from stdin if no input file is specified.
-
-    bo [options]
-
-Options:
-
-  * -f some-file: Read commands from some-file instead of stdin
-  * -o some-file: Send output to some-file instead of stdout
 
 
+
+
+### Examples
+
+    bo -i file.bin oh1l2 Pc iB
+
+  * Set output type to hex, 1 byte per value, little endian (doesn't matter here), 2 digits per value.
+  * Use the "c" preset, which sets prefix to "0x" and suffix to ", ".
+  * Set input to binary. No more commands will be accepted. All input after parsing this argument will be treated as binary.
+  * Read binary data from file1.bin and output as 0x01, 0xfe, 0x5a, etc.
+
+
+    bo -o file.bin oB if4b "1.1 -400000 89.45005"
+
+  * Set output type to binary.
+  * Set input type to floating point, 4 bytes per value, big endian.
+  * Set the output file to "file.bin"
+  * Write three 32-bit ieee754 floating point values in binary to file.bin in big endian order.
+
+
+    bo if8l oh1l2 "s\" \"" 1.5
+
+  * See what 1.5 as a 64-bit ieee754 floating point value looks like when stored in little endian order.
 
 Commands
 --------
+
+Bo parses whitespace separated strings and interprets them as commands. The following commands are supported:
+
+  * i: Set input type.
+  * o: Set output type.
+  * p: Set the prefix to prepend to every output value.
+  * s: Set the suffix to append to every value except the last.
+  * P: Set the prefix and suffix from a preset.
+  * "...": Read a string value.
+  * (numeric): Read a numeric value.
 
 Bo reads a series of whitespace separated commands and data, and uses them to generate binary data for output. The commands are as follows:
 
