@@ -82,5 +82,5 @@ TEST(BO_Output, hex_4_2_4_be)
 
 TEST(BO_Output, string)
 {
-    assert_conversion("oB \"This is a string\"", "This is a string");
+    assert_conversion("oB1l \"This is a string\"", "This is a string");
 }

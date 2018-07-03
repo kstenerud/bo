@@ -178,6 +178,8 @@ int main(int argc, char* argv[])
 		    	out_stream = new_output_stream(optarg);
         		break;
         	case 'h':
+				print_usage();
+				goto success;
       		default:
 				print_usage();
 				goto failed;
@@ -220,6 +222,7 @@ int main(int argc, char* argv[])
 		goto failed;
 	}
 
+success:
 	teardown(context, out_stream, in_filenames, in_file_count);
 	return 0;
 

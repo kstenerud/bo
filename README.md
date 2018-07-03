@@ -18,15 +18,44 @@ Bo reads data and interprets it according to its current input mode, converting 
 
 
 
+Building
+--------
+
+Requirements:
+
+  * CMake
+  * Bison
+  * Flex
+  * C/C++ compiler
+
+Commands:
+
+    mkdir build
+    cd build
+    cmake ..
+    make
+    ./bo_app/bo -h
+
+
+
+Tests
+-----
+
+    ./libbo/test/libbo_test
+
+
+
 Usage
 -----
 
     bo [options] command [command] ...
 
+
 ### Options
 
   * -i [filename]: Read commands/data from a file.
   * -o [filename]: Write output to a file.
+
 
 Specifying "-" as the filename will cause bo to use stdin (when used with -i) or stdout (when used with -o).
 By default, bo won't read from any files, and will write output to stdout.
@@ -56,18 +85,22 @@ Bo reads a series of whitespace separated commands and data, and uses them to in
   * s{string}: Specify a suffix to append to each datum object (except for the last object)
   * P{type}: Specify a preset for prefix and suffix.
 
+
 Bo will attempt to interpret any non-command as data (number for anything numeric, and string for anything between quotes).
 
 Data is interpreted according to the input format, stored in an intermediary buffer as binary data, and then later re-interpreted and printed according to the output format.
 
 Strings are copied as bytes to the intermediary binary buffer, to be reinterpreted later by the output format.
 
+
 For example, data input as hex encoded little endian 16-bit integers (ih2l), and then re-interpreted as hex encoded little endian 32-bit integers (oh4l8) with a space (s\" \") suffix would look like:
 
     input:  1234 5678 9abc 5432
     output: 78563412 3254bc9a
 
+
 Before processing any data, both input and output types must be specified via `input type` and `output type` commands. You may later change the input or output types again via commands, even after interpreting data. Any time the output type is changed, all buffers are flushed.
+
 
 
 ### Input Type Command
@@ -77,6 +110,7 @@ The input specifier command consists of 3 parts:
   * Numeric Type: How to interpret the text represenation of a number (integer, float, decimal, etc)
   * Data Width: What width of the numeric type to use in bytes (1, 2, 4, 8, 16)
   * Endianness: What endianness to use when storing data (little or big endian)
+
 
 ### Output Type Command
 
@@ -244,7 +278,7 @@ All of bo's functionality is in the library libbo. The API is small (6 calls, 2 
   * Flush and destroy the context.
   * Gather output and errors via the callbacks.
 
-test_helpers.cpp shows how to parse strings, and main.c from bo_app shows how to use file streams.
+`test_helpers.cpp` shows how to parse strings, and `main.c` from bo_app shows how to use file streams.
 
 
 
