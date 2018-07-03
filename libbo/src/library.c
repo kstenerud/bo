@@ -70,7 +70,7 @@ static void bo_notify_posix_error(bo_context* context, char* fmt, ...)
 // String Printers
 // ---------------
 
-static inline void byte_swap(uint8_t* dst, uint8_t* src, int length)
+static inline void copy_swapped(uint8_t* dst, uint8_t* src, int length)
 {
 	for(int i = 0; i < length; i++)
 	{
@@ -110,7 +110,7 @@ static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* d
 	} \
 \
 	uint8_t buffer[DATA_WIDTH]; \
-	byte_swap(buffer, src, DATA_WIDTH); \
+	copy_swapped(buffer, src, DATA_WIDTH); \
 	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
 }
 DEFINE_INT_STRING_PRINTER(int, int, 1, d)
@@ -142,7 +142,7 @@ static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* d
 	} \
 \
 	uint8_t buffer[DATA_WIDTH]; \
-	byte_swap(buffer, src, DATA_WIDTH); \
+	copy_swapped(buffer, src, DATA_WIDTH); \
 	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
 }
 // TODO: float-2
@@ -151,6 +151,40 @@ DEFINE_FLOAT_STRING_PRINTER(float, float, 8, f)
 // TODO: float-16
 // TODO: decimal-8
 // TODO: decimal-16
+
+#define DEFINE_BINARY_PRINTER(DATA_WIDTH) \
+static int binary_print_ ## DATA_WIDTH ## _le(uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
+{ \
+    if(BO_NATIVE_INT_ENDIANNESS == BO_ENDIAN_LITTLE) \
+    { \
+        memcpy(dst, src, DATA_WIDTH); \
+    } \
+    else \
+    { \
+        copy_swapped(dst, src, DATA_WIDTH); \
+    } \
+    return DATA_WIDTH; \
+} \
+static int binary_print_ ## DATA_WIDTH ## _be(uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
+{ \
+    if(BO_NATIVE_INT_ENDIANNESS == BO_ENDIAN_BIG) \
+    { \
+        memcpy(dst, src, DATA_WIDTH); \
+    } \
+    else \
+    { \
+        copy_swapped(dst, src, DATA_WIDTH); \
+    } \
+    return DATA_WIDTH; \
+}
+DEFINE_BINARY_PRINTER(2)
+DEFINE_BINARY_PRINTER(4)
+DEFINE_BINARY_PRINTER(8)
+DEFINE_BINARY_PRINTER(16)
+static int binary_print_1(uint8_t* src, char* dst, int text_width, bo_endianness endianness)
+{
+    *dst = *src;
+}
 
 static string_printer get_string_printer(bo_context* context)
 {
@@ -227,6 +261,18 @@ static string_printer get_string_printer(bo_context* context)
         case TYPE_DECIMAL:
             bo_notify_error(context, "TODO: DECIMAL not implemented");
             return NULL;
+        case TYPE_BINARY:
+            switch(context->output.data_width)
+            {
+                case 1: return binary_print_1;
+                case 2: return context->output.endianness == BO_ENDIAN_LITTLE ? binary_print_2_le : binary_print_2_be;
+                case 4: return context->output.endianness == BO_ENDIAN_LITTLE ? binary_print_4_le : binary_print_4_be;
+                case 8: return context->output.endianness == BO_ENDIAN_LITTLE ? binary_print_8_le : binary_print_8_be;
+                case 16: return context->output.endianness == BO_ENDIAN_LITTLE ? binary_print_16_le : binary_print_16_be;
+                default:
+                    bo_notify_error(context, "%d: invalid data width", context->output.data_width);
+                    return NULL;
+            }
         case TYPE_STRING:
             bo_notify_error(context, "\"String\" is not a valid output format");
         case TYPE_NONE:
@@ -357,6 +403,38 @@ static inline bool can_input_numbers(bo_context* context)
 static int trim_length_to_object_boundary(int length, int object_size_in_bytes)
 {
     return length - (length % object_size_in_bytes);
+}
+
+static inline void swap_endianness(uint8_t* dst, int length)
+{
+    const int half_length = length / 2;
+    for(int i = 0; i < half_length; i++)
+    {
+        const int ch = dst[i];
+        dst[i] = dst[length - i - 1];
+        dst[length - i - 1] = ch;
+    }
+}
+
+static int pad_to_width(uint8_t* buffer, int length, int data_width)
+{
+    const int dangling_length = (data_width - length) % data_width;
+    if(dangling_length > 0)
+    {
+        memset(buffer+length, 0, dangling_length);
+    }
+    return dangling_length;
+}
+
+// Note: This will run off the end of length to fill out to a multiple of data_width!
+static void swap_buffer_endianness(uint8_t* buffer, int length, int data_width)
+{
+    pad_to_width(buffer, length, data_width);
+    const uint8_t* end = buffer + length;
+    for(uint8_t* current = buffer; current < end; current += data_width)
+    {
+        swap_endianness(current, data_width);
+    }
 }
 
 
@@ -493,7 +571,7 @@ static bool add_int(bo_context* context, uint64_t src_value)
             if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
             {
             	uint8_t buff[sizeof(value)];
-            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+            	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
 	            return add_bytes(context, buff, sizeof(value));
             }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
@@ -504,7 +582,7 @@ static bool add_int(bo_context* context, uint64_t src_value)
             if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
             {
             	uint8_t buff[sizeof(value)];
-            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+            	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
 	            return add_bytes(context, buff, sizeof(value));
             }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
@@ -515,7 +593,7 @@ static bool add_int(bo_context* context, uint64_t src_value)
             if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
             {
             	uint8_t buff[sizeof(value)];
-            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+            	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
 	            return add_bytes(context, buff, sizeof(value));
             }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
@@ -542,7 +620,7 @@ static bool add_float(bo_context* context, double src_value)
             if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
             {
             	uint8_t buff[sizeof(value)];
-            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+            	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
 	            return add_bytes(context, buff, sizeof(value));
             }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
@@ -553,7 +631,7 @@ static bool add_float(bo_context* context, double src_value)
             if(context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
             {
             	uint8_t buff[sizeof(value)];
-            	byte_swap(buff, (uint8_t*)&value, sizeof(value));
+            	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
 	            return add_bytes(context, buff, sizeof(value));
             }
             return add_bytes(context, (uint8_t*)&value, sizeof(value));
@@ -588,6 +666,10 @@ bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream)
                 bo_notify_posix_error(context, "Error reading file");
                 return false;
             }
+        }
+        if(context->input.data_width != 1 && context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
+        {
+            swap_buffer_endianness(buffer, bytes_read, context->input.data_width);
         }
         if(!add_bytes(context, buffer, bytes_read))
         {
@@ -680,11 +762,13 @@ char* bo_unescape_string(char* str)
 
 bool bo_on_string(bo_context* context, const char* string)
 {
+    LOG("On string [%s]", string);
     return add_bytes(context, (uint8_t*)string, strlen(string));
 }
 
 bool bo_on_number(bo_context* context, const char* string_value)
 {
+    LOG("On number [%s]", string_value);
     if(!can_input_numbers(context))
     {
         bo_notify_error(context, "Must set input type before adding numbers");
@@ -714,6 +798,7 @@ bool bo_on_number(bo_context* context, const char* string_value)
 
 bool bo_set_input_type(bo_context* context, const char* string_value)
 {
+    LOG("Set input type [%s]", string_value);
     context->input.data_type = *string_value++;
     context->input.data_width = strtol(string_value, NULL, 10);
     string_value += context->input.data_width >= 10 ? 2 : 1;
@@ -721,16 +806,19 @@ bool bo_set_input_type(bo_context* context, const char* string_value)
     return true;
 }
 
-bool bo_set_input_type_binary(bo_context* context)
+bool bo_set_input_type_binary(bo_context* context, const char* string_value)
 {
+    LOG("Set input type binary [%s]", string_value);
     context->input.data_type = TYPE_BINARY;
-    context->input.data_width = 0;
-    context->input.endianness = BO_ENDIAN_LITTLE;
+    context->input.data_width = strtol(string_value, NULL, 10);
+    string_value += context->input.data_width >= 10 ? 2 : 1;
+    context->input.endianness = *string_value;
     return true;
 }
 
 bool bo_set_output_type(bo_context* context, const char* string_value)
 {
+    LOG("Set output type [%s]", string_value);
     // If the output format changes, everything up to that point must be flushed.
     if(!flush_work_buffer(context, true))
     {
@@ -744,11 +832,13 @@ bool bo_set_output_type(bo_context* context, const char* string_value)
 	return true;
 }
 
-bool bo_set_output_type_binary(bo_context* context)
+bool bo_set_output_type_binary(bo_context* context, const char* string_value)
 {
+    LOG("Set output type binary [%s]", string_value);
     context->output.data_type = TYPE_BINARY;
-    context->output.data_width = 0;
-    context->output.endianness = BO_ENDIAN_LITTLE;
+    context->input.data_width = strtol(string_value, NULL, 10);
+    string_value += context->input.data_width >= 10 ? 2 : 1;
+    context->input.endianness = *string_value;
     context->output.text_width = 0;
     bo_set_prefix(context, "");
     bo_set_suffix(context, "");
@@ -757,6 +847,7 @@ bool bo_set_output_type_binary(bo_context* context)
 
 bool bo_set_prefix(bo_context* context, const char* string_value)
 {
+    LOG("Set prefix [%s]", string_value);
 	if(context->output.prefix != NULL)
 	{
 		free((void*)context->output.prefix);
@@ -767,6 +858,7 @@ bool bo_set_prefix(bo_context* context, const char* string_value)
 
 bool bo_set_suffix(bo_context* context, const char* string_value)
 {
+    LOG("Set suffix [%s]", string_value);
 	if(context->output.suffix != NULL)
 	{
 		free((void*)context->output.suffix);
@@ -777,6 +869,7 @@ bool bo_set_suffix(bo_context* context, const char* string_value)
 
 bool bo_set_prefix_suffix(bo_context* context, const char* string_value)
 {
+    LOG("Set prefix-suffix [%s]", string_value);
     switch(*string_value)
     {
         case 's':
@@ -814,11 +907,13 @@ const char* bo_version()
 
 void* bo_new_callback_context(void* user_data, output_callback on_output, error_callback on_error)
 {
+    LOG("New callback context");
     return new_context(user_data, on_output, on_error);
 }
 
 void* bo_new_stream_context(void* user_data, FILE* output_stream, error_callback on_error)
 {
+    LOG("New stream context");
     wrapped_user_data* wrapped = malloc(sizeof(wrapped_user_data));
     wrapped->output_stream = output_stream;
     wrapped->on_error = on_error;
@@ -830,6 +925,7 @@ void* bo_new_stream_context(void* user_data, FILE* output_stream, error_callback
 
 bool bo_flush_and_destroy_context(void* void_context)
 {
+    LOG("Destroy context");
     bo_context* context = (bo_context*)void_context;
     bool is_successful = flush_work_buffer(context, true);
     flush_output_buffer(context);

@@ -41,8 +41,8 @@ input_setting: input_type | input_binary
 
 input_type:    INPUT_TYPE    { if(!bo_set_input_type(context, $1)) return -1; }
 output_type:   OUTPUT_TYPE   { if(!bo_set_output_type(context, $1)) return -1; }
-input_binary:  INPUT_BINARY  { if(!bo_set_input_type_binary(context)) return -1; else return EARLY_EXIT_BINARY_MODE_MARKER; }
-output_binary: OUTPUT_BINARY { if(!bo_set_output_type_binary(context)) return -1; }
+input_binary:  INPUT_BINARY  { if(!bo_set_input_type_binary(context, $1)) return -1; else return EARLY_EXIT_BINARY_MODE_MARKER; }
+output_binary: OUTPUT_BINARY { if(!bo_set_output_type_binary(context, $1)) return -1; }
 prefix:        PREFIX        { if(!bo_set_prefix(context, $1)) return -1; }
 suffix:        SUFFIX        { if(!bo_set_suffix(context, $1)) return -1; }
 prefix_suffix: PREFIX_SUFFIX { if(!bo_set_prefix_suffix(context, $1)) return -1; }

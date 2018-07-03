@@ -9,6 +9,8 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+#define LOG(FMT, ...)
+// #define LOG(...) do {fprintf(stdout, "LOG: ");fprintf(stdout, __VA_ARGS__);fprintf(stdout, "\n");fflush(stdout);} while(0)
 
 #define BO_NATIVE_INT_ENDIANNESS (((__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
                                   ((__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
@@ -87,8 +89,8 @@ bool bo_on_number(bo_context* context, const char* string_value);
 
 bool bo_set_input_type(bo_context* context, const char* string_value);
 bool bo_set_output_type(bo_context* context, const char* string_value);
-bool bo_set_input_type_binary(bo_context* context);
-bool bo_set_output_type_binary(bo_context* context);
+bool bo_set_input_type_binary(bo_context* context, const char* string_value);
+bool bo_set_output_type_binary(bo_context* context, const char* string_value);
 bool bo_set_prefix(bo_context* context, const char* string_value);
 bool bo_set_suffix(bo_context* context, const char* string_value);
 bool bo_set_prefix_suffix(bo_context* context, const char* string_value);

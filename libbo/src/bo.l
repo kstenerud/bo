@@ -39,8 +39,8 @@ PREFIX_SUFFIX [cs]
 
 i{NUMERIC_TYPE}{WIDTH}{ENDIAN} { yylval->string_v = yytext+1; return INPUT_TYPE; }
 o{NUMERIC_TYPE}{WIDTH}{ENDIAN}{U_INT} { yylval->string_v = yytext+1; return OUTPUT_TYPE; }
-iB { return INPUT_BINARY; }
-oB { return OUTPUT_BINARY; }
+iB{WIDTH}{ENDIAN} { yylval->string_v = yytext+2; return INPUT_BINARY; }
+oB{WIDTH}{ENDIAN} { yylval->string_v = yytext+2; return OUTPUT_BINARY; }
 
 p{VALUE_STRING} {
     yylval->string_v = unescape_unquote_string(yytext + 1);
@@ -72,6 +72,7 @@ static char* unescape_unquote_string(char* str)
 
 bool bo_process_string(void* void_context, const char* string)
 {
+    LOG("Process string [%s]", string);
     bo_context* context = (bo_context*)void_context;
     yyscan_t scanner;
     if(yylex_init(&scanner) != 0)
@@ -99,7 +100,8 @@ bool bo_process_stream(void* void_context, FILE* input_stream)
 {
     bo_context* context = (bo_context*)void_context;
 
-    if(context->output.data_type == TYPE_BINARY)
+    LOG("Process stream as [%c]", context->input.data_type);
+    if(context->input.data_type == TYPE_BINARY)
     {
         return bo_process_stream_as_binary(context, input_stream);
     }
