@@ -328,15 +328,8 @@ static char* terminate_token(bo_context* context, char* ptr)
  */
 static char* parse_string(bo_context* context, char* string)
 {
-    if(*string != '"')
-    {
-        terminate_token(context, string);
-        bo_notify_error(context, "%s: Not a string", string);
-        return NULL;
-    }
-
     char* write_pos = string;
-    char* read_pos = string + 1;
+    char* read_pos = string;
     for(; *read_pos != '"'; read_pos++)
     {
         if(*read_pos == 0)
@@ -429,7 +422,7 @@ static void on_unknown_token(bo_context* context, char* ptr)
 
 static char* on_string(bo_context* context, char* ptr)
 {
-    char* string = ptr;
+    char* string = ptr + 1;
     char* string_end = parse_string(context, string);
     if(string_end == NULL || !bo_on_string(context, string)) return NULL;
     return string_end;
@@ -437,7 +430,14 @@ static char* on_string(bo_context* context, char* ptr)
 
 static char* on_prefix(bo_context* context, char* ptr)
 {
-    char* prefix = ptr + 1;
+    if(ptr[1] != '"')
+    {
+        terminate_token(context, ptr);
+        bo_notify_error(context, "%s: Not a string", ptr + 1);
+        return NULL;
+    }
+
+    char* prefix = ptr + 2;
     char* prefix_end = parse_string(context, prefix);
     if(prefix_end == NULL || !bo_on_prefix(context, prefix)) return NULL;
     return prefix_end;
@@ -445,7 +445,14 @@ static char* on_prefix(bo_context* context, char* ptr)
 
 static char* on_suffix(bo_context* context, char* ptr)
 {
-    char* suffix = ptr + 1;
+    if(ptr[1] != '"')
+    {
+        terminate_token(context, ptr);
+        bo_notify_error(context, "%s: Not a string", ptr + 1);
+        return NULL;
+    }
+
+    char* suffix = ptr + 2;
     char* suffix_end = parse_string(context, suffix);
     if(suffix_end == NULL || !bo_on_suffix(context, suffix)) return NULL;
     return suffix_end;
