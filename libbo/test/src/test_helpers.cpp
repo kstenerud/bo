@@ -2,12 +2,14 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+// #define bo_process_string bo_parse
 
 static bool g_has_errors = false;
 
 static void on_error(void* user_data, const char* message)
 {
 	printf("BO Error: %s\n", message);
+	fflush(stdout);
 	g_has_errors = true;
 }
 
@@ -44,6 +46,7 @@ void assert_conversion(const char* input, const char* expected_output)
 	{
 		.pos = buffer,
 	};
+	input = strdup(input);
 	void* context = bo_new_callback_context(&test_context, on_output, on_error);
 	bool process_success = bo_process_string(context, input);
 	bool flush_success = bo_flush_and_destroy_context(context);
@@ -51,6 +54,7 @@ void assert_conversion(const char* input, const char* expected_output)
 	ASSERT_TRUE(flush_success);
 	ASSERT_FALSE(has_errors());
 	ASSERT_STREQ(expected_output, buffer);
+	free((void*)input);
 }
 
 void assert_failed_conversion(int buffer_length, const char* input)
@@ -61,10 +65,12 @@ void assert_failed_conversion(int buffer_length, const char* input)
 	{
 		.pos = buffer,
 	};
+	input = strdup(input);
 	void* context = bo_new_callback_context(&test_context, on_output, on_error);
 	bool process_success = bo_process_string(context, input);
 	bool flush_success = bo_flush_and_destroy_context(context);
 	bool is_successful = process_success && flush_success;
 	ASSERT_FALSE(is_successful);
 	ASSERT_TRUE(has_errors());
+	free((void*)input);
 }

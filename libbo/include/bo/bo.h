@@ -102,6 +102,10 @@ bool bo_process_string(void* void_context, const char* string);
 bool bo_process_stream(void* context, FILE* src);
 
 
+// TODO: Temporary
+bool bo_parse(void* context, const char* string);
+
+
 #ifdef __cplusplus
 }
 #endif

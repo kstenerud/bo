@@ -40,6 +40,7 @@ static const char* const g_character_flag_names[] =
 	"WHITESPACE",    // This is a whitespace character
 	"BASE_10",       // This character can be used to represent a number in base 10
 	"BASE_16",       // This character can be used to represent a number in base 16
+	"NUMBER",        // digits, sign, decimal point, etc
 	"ALPHANUMERIC",  // This character is alphanumeric ([a-zA-Z0-9])
 	"SYMBOL",        // This is a symbol character
 	"PRINTABLE",     // This character represents a printable symbol
@@ -60,9 +61,10 @@ typedef enum
 	WHITESPACE   = 0x02,
 	BASE_10      = 0x04,
 	BASE_16      = 0x08,
-	ALPHANUMERIC = 0x10,
-	SYMBOL       = 0x20,
-	PRINTABLE    = 0x40,
+	NUMBER       = 0x10,
+	ALPHANUMERIC = 0x20,
+	SYMBOL       = 0x40,
+	PRINTABLE    = 0x80,
 } character_flag;
 
 static const character_flag g_character_flags[] =
@@ -72,6 +74,7 @@ static const character_flag g_character_flags[] =
 	WHITESPACE,
 	BASE_10,
 	BASE_16,
+	NUMBER,
 	ALPHANUMERIC,
 	SYMBOL,
 	PRINTABLE,
@@ -102,9 +105,20 @@ static void mark_whitespace(character_flag* flags)
 	flags[' '] |= WHITESPACE;
 }
 
+static void mark_numbers(character_flag* flags)
+{
+	mark_flags(flags, NUMBER, '0', '9');
+	mark_flags(flags, NUMBER, 'a', 'f');
+	mark_flags(flags, NUMBER, 'A', 'F');
+	flags['+'] |= NUMBER;
+	flags['-'] |= NUMBER;
+	flags['.'] |= NUMBER;
+}
+
 static void mark_control(character_flag* flags)
 {
 	mark_flags(flags, CONTROL, 0x00, 0x1f);
+	flags[0x7f] |= CONTROL;
 }
 
 static void mark_base_10(character_flag* flags)
@@ -261,6 +275,7 @@ int main(void)
 	mark_whitespace(flags);
 	mark_base_10(flags);
 	mark_base_16(flags);
+	mark_numbers(flags);
 	mark_alphanumeric(flags);
 	mark_symbols(flags);
 	mark_printable(flags);

@@ -56,7 +56,7 @@ void bo_notify_error(bo_context* context, char* fmt, ...)
 
     va_list args;
     va_start(args, fmt);
-    snprintf(buffer, sizeof(buffer), fmt, args);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
     buffer[sizeof(buffer)-1] = 0;
     va_end(args);
 
@@ -70,7 +70,7 @@ static void bo_notify_posix_error(bo_context* context, char* fmt, ...)
 
     va_list args;
     va_start(args, fmt);
-    snprintf(buffer, sizeof(buffer), fmt, args);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
     buffer[sizeof(buffer)-1] = 0;
     va_end(args);
 
@@ -299,7 +299,7 @@ static string_printer get_string_printer(bo_context* context)
         case TYPE_STRING:
             bo_notify_error(context, "\"String\" is not a valid output format");
         case TYPE_NONE:
-            bo_notify_error(context, "You must set an output data type before passing data");
+            bo_notify_error(context, "Must set output data type before passing data");
             return NULL;
         default:
             bo_notify_error(context, "%d: Unknown data type", context->output.data_type);
@@ -777,8 +777,6 @@ char* bo_unescape_string(char* str)
     return write_pos;
 }
 
-
-
 // ----------------
 // Parser Callbacks
 // ----------------
@@ -914,6 +912,41 @@ bool bo_set_prefix_suffix(bo_context* context, const char* string_value)
             bo_notify_error(context, "%s: Unknown prefix-suffix preset", string_value);
             return false;
     }
+    return true;
+}
+
+
+bool bo_on_preset(bo_context* context, const char* string_value)
+{
+    return bo_set_prefix_suffix(context, string_value);
+}
+
+bool bo_on_prefix(bo_context* context, const char* prefix)
+{
+    return bo_set_prefix(context, prefix);
+}
+
+bool bo_on_suffix(bo_context* context, const char* suffix)
+{
+    return bo_set_suffix(context, suffix);
+}
+
+bool bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness)
+{
+    LOG("Set input type %c, width %d, endianness %c", data_type, data_width, endianness);
+    context->input.data_type = data_type;
+    context->input.data_width = data_width;
+    context->input.endianness = endianness;
+    return true;
+}
+
+bool bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width)
+{
+    LOG("Set input type %c, width %d, endianness %c, print width %d", data_type, data_width, endianness, print_width);
+    context->output.data_type = data_type;
+    context->output.data_width = data_width;
+    context->output.endianness = endianness;
+    context->output.text_width = print_width;
     return true;
 }
 

@@ -59,6 +59,7 @@ typedef enum
 
 typedef enum
 {
+    BO_ENDIAN_NONE = 0,
     BO_ENDIAN_LITTLE = 'l',
     BO_ENDIAN_BIG = 'b',
 } bo_endianness;
@@ -103,6 +104,8 @@ typedef struct
     error_callback on_error;
     output_callback on_output;
     void* user_data;
+    bool at_end_of_input;
+    bool at_end_of_parse;
 } bo_context;
 
 
@@ -118,6 +121,13 @@ bool bo_set_output_type_binary(bo_context* context, const char* string_value);
 bool bo_set_prefix(bo_context* context, const char* string_value);
 bool bo_set_suffix(bo_context* context, const char* string_value);
 bool bo_set_prefix_suffix(bo_context* context, const char* string_value);
+
+bool bo_on_preset(bo_context* context, const char* string_value);
+bool bo_on_prefix(bo_context* context, const char* prefix);
+bool bo_on_suffix(bo_context* context, const char* suffix);
+bool bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness);
+bool bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width);
+
 
 /**
  * Escapes a string in-place (modifies the original string).

@@ -9,6 +9,7 @@ add_flex_bison_dependency(FlexScanner BisonParser)
 
 add_library(libbo
     src/library.c
+    src/parser.c
     ${BISON_BisonParser_OUTPUTS}
     ${FLEX_FlexScanner_OUTPUTS}
 )
