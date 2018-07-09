@@ -52,7 +52,7 @@ void assert_conversion(const char* input, const char* expected_output)
 		.pos = buffer,
 	};
 	input = strdup(input);
-	void* context = bo_new_callback_context(&test_context, on_output, on_error);
+	void* context = bo_new_context(&test_context, on_output, on_error);
 	bool process_success = bo_process_string(context, input);
 	bool flush_success = bo_flush_and_destroy_context(context);
 	ASSERT_TRUE(process_success);
@@ -71,7 +71,7 @@ void assert_failed_conversion(int buffer_length, const char* input)
 		.pos = buffer,
 	};
 	input = strdup(input);
-	void* context = bo_new_callback_context(&test_context, on_output, on_error);
+	void* context = bo_new_context(&test_context, on_output, on_error);
 	bool process_success = bo_process_string(context, input);
 	bool flush_success = bo_flush_and_destroy_context(context);
 	bool is_successful = process_success && flush_success;

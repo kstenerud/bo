@@ -416,36 +416,6 @@ static void file_on_error(void* void_user_data, const char* message)
 // Internal
 // --------
 
-static void* new_context(void* user_data, output_callback on_output, error_callback on_error)
-{
-    bo_context context =
-    {
-        .work_buffer = bo_new_buffer(WORK_BUFFER_SIZE, WORK_BUFFER_OVERHEAD_SIZE),
-        .output_buffer = bo_new_buffer(WORK_BUFFER_SIZE * 10, OUTPUT_BUFFER_OVERHEAD_SIZE),
-        .input =
-        {
-            .data_type = TYPE_NONE,
-            .data_width = 0,
-        },
-        .output =
-        {
-            .data_type = TYPE_NONE,
-            .data_width = 0,
-            .text_width = 0,
-            .prefix = NULL,
-            .suffix = NULL,
-            .endianness = BO_ENDIAN_LITTLE,
-        },
-        .on_error = on_error,
-        .on_output = on_output,
-        .user_data = user_data,
-    };
-
-    bo_context* heap_context = (bo_context*)malloc(sizeof(context));
-    *heap_context = context;
-    return heap_context;
-}
-
 static bool context_user_data_is_owned_by_us(bo_context* context)
 {
     return context->on_output == file_on_output;
@@ -1016,10 +986,35 @@ const char* bo_version()
     return BO_VERSION;
 }
 
-void* bo_new_callback_context(void* user_data, output_callback on_output, error_callback on_error)
+void* bo_new_context(void* user_data, output_callback on_output, error_callback on_error)
 {
     LOG("New callback context");
-    return new_context(user_data, on_output, on_error);
+    bo_context context =
+    {
+        .work_buffer = bo_new_buffer(WORK_BUFFER_SIZE, WORK_BUFFER_OVERHEAD_SIZE),
+        .output_buffer = bo_new_buffer(WORK_BUFFER_SIZE * 10, OUTPUT_BUFFER_OVERHEAD_SIZE),
+        .input =
+        {
+            .data_type = TYPE_NONE,
+            .data_width = 0,
+        },
+        .output =
+        {
+            .data_type = TYPE_NONE,
+            .data_width = 0,
+            .text_width = 0,
+            .prefix = NULL,
+            .suffix = NULL,
+            .endianness = BO_ENDIAN_LITTLE,
+        },
+        .on_error = on_error,
+        .on_output = on_output,
+        .user_data = user_data,
+    };
+
+    bo_context* heap_context = (bo_context*)malloc(sizeof(context));
+    *heap_context = context;
+    return heap_context;
 }
 
 void* bo_new_stream_context(void* user_data, FILE* output_stream, error_callback on_error)
@@ -1029,7 +1024,7 @@ void* bo_new_stream_context(void* user_data, FILE* output_stream, error_callback
     wrapped->output_stream = output_stream;
     wrapped->on_error = on_error;
     wrapped->user_data = user_data;
-    bo_context* context = new_context(wrapped, file_on_output, file_on_error);
+    bo_context* context = bo_new_context(wrapped, file_on_output, file_on_error);
     wrapped->context = context;
     return context;
 }

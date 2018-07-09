@@ -63,7 +63,7 @@ const char* bo_version();
  * @param on_output Called whenever there's processed output data.
  * @param on_error Called if an error occurs while processing.
  */
-void* bo_new_callback_context(void* user_data, output_callback on_output, error_callback on_error);
+void* bo_new_context(void* user_data, output_callback on_output, error_callback on_error);
 
 /**
  * Create a new bo context that streams to a file.
