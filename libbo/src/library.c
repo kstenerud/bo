@@ -50,6 +50,12 @@
 // Error Reporting
 // ---------------
 
+static void mark_error_condition(bo_context* context)
+{
+    context->is_error_condition = true;
+    context->parse_should_continue = false;
+}
+
 void bo_notify_error(bo_context* context, char* fmt, ...)
 {
     char buffer[500];
@@ -60,6 +66,7 @@ void bo_notify_error(bo_context* context, char* fmt, ...)
     buffer[sizeof(buffer)-1] = 0;
     va_end(args);
 
+    mark_error_condition(context);
     context->on_error(context->user_data, buffer);
 }
 
@@ -84,6 +91,7 @@ static void bo_notify_posix_error(bo_context* context, char* fmt, ...)
     strerror_r(error_num, buffer + length, remaining);
     buffer[sizeof(buffer)-1] = 0;
 
+    mark_error_condition(context);
     context->on_error(context->user_data, buffer);
 }
 
@@ -335,14 +343,39 @@ void bo_free_buffer(bo_buffer* buffer)
     }
 }
 
-static bool is_high_water(bo_buffer* buffer)
+static bool buffer_is_high_water(bo_buffer* buffer)
 {
     return buffer->pos >= buffer->high_water;
 }
 
-static void clear_buffer(bo_buffer* buffer)
+static bool buffer_is_initialized(bo_buffer* buffer)
+{
+    return buffer->start != NULL;
+}
+
+static bool buffer_is_empty(bo_buffer* buffer)
+{
+    return buffer->pos == buffer->start;
+}
+
+static int buffer_get_used(bo_buffer* buffer)
+{
+    return buffer->pos - buffer->start;
+}
+
+static int buffer_get_remaining(bo_buffer* buffer)
+{
+    return buffer->end - buffer->pos;
+}
+
+static void buffer_clear(bo_buffer* buffer)
 {
     buffer->pos = buffer->start;
+}
+
+static void buffer_use_space(bo_buffer* buffer, int bytes)
+{
+    buffer->pos += bytes;
 }
 
 
@@ -460,47 +493,55 @@ static void swap_buffer_endianness(uint8_t* buffer, int length, int data_width)
     }
 }
 
+static void clear_error_condition(bo_context* context)
+{
+    context->is_error_condition = false;
+}
 
 
 // ---------------
 // Buffer Flushing
 // ---------------
 
-static bool flush_output_buffer(bo_context* context)
+static void flush_output_buffer(bo_context* context)
 {
-    bool result = context->on_output(context->user_data, context->output_buffer.start, context->output_buffer.pos - context->output_buffer.start);
-    clear_buffer(&context->output_buffer);
-    return result;
-}
-
-static bool flush_work_buffer_binary(bo_context* context)
-{
-    bool result = context->on_output(context->user_data, context->work_buffer.start, context->work_buffer.pos - context->work_buffer.start);
-    clear_buffer(&context->work_buffer);
-    return result;
-}
-
-static bool flush_work_buffer(bo_context* context, bool is_complete_flush)
-{
-    if(context->work_buffer.start == NULL || context->work_buffer.pos == context->work_buffer.start)
+    if(!context->on_output(context->user_data, context->output_buffer.start, buffer_get_used(&context->output_buffer)))
     {
-        return true;
+        mark_error_condition(context);
+    }
+    buffer_clear(&context->output_buffer);
+}
+
+static void flush_work_buffer_binary(bo_context* context)
+{
+    if(!context->on_output(context->user_data, context->work_buffer.start, buffer_get_used(&context->work_buffer)))
+    {
+        mark_error_condition(context);
+    }
+    buffer_clear(&context->work_buffer);
+}
+
+static void flush_work_buffer(bo_context* context, bool is_complete_flush)
+{
+    if(!buffer_is_initialized(&context->work_buffer) || buffer_is_empty(&context->work_buffer))
+    {
+        return;
     }
 
     if(context->output.data_type == TYPE_BINARY)
     {
-        return flush_work_buffer_binary(context);
+        flush_work_buffer_binary(context);
+        return;
     }
 
     string_printer string_print = get_string_printer(context);
-    if(string_print == NULL)
+    if(!should_continue_parsing(context))
     {
-        // Assume string_print() reported the error.
-        return false;
+        return;
     }
 
     int bytes_per_entry = context->output.data_width;
-    int work_length = context->work_buffer.pos - context->work_buffer.start;
+    int work_length = buffer_get_used(&context->work_buffer);
     if(is_complete_flush)
     {
         // Ensure that the partial read at the end gets zeroes instead of random garbage.
@@ -512,7 +553,7 @@ static bool flush_work_buffer(bo_context* context, bool is_complete_flush)
         work_length = trim_length_to_object_boundary(work_length, bytes_per_entry);
     }
 
-    clear_buffer(&context->output_buffer);
+    buffer_clear(&context->output_buffer);
     bo_buffer* out = &context->output_buffer;
     uint8_t* end = context->work_buffer.start + work_length;
 
@@ -528,7 +569,7 @@ static bool flush_work_buffer(bo_context* context, bool is_complete_flush)
         if(bytes_written < 0)
         {
             bo_notify_error(context, "Error writing string value");
-            return -1;
+            return;
         }
         out->pos += bytes_written;
 
@@ -538,15 +579,15 @@ static bool flush_work_buffer(bo_context* context, bool is_complete_flush)
             out->pos += strlen(out->pos);
         }
 
-        if(is_high_water(out))
+        if(buffer_is_high_water(out))
         {
-            if(!flush_output_buffer(context))
+            flush_output_buffer(context);
+            if(!should_continue_parsing(context))
             {
-                return false;
+                return;
             }
         }
     }
-    return true;
 }
 
 
@@ -555,38 +596,39 @@ static bool flush_work_buffer(bo_context* context, bool is_complete_flush)
 // Binary Data Adders
 // ------------------
 
-static bool add_bytes(bo_context* context, uint8_t* ptr, int length)
+static void add_bytes(bo_context* context, uint8_t* ptr, int length)
 {
-    int remaining = context->work_buffer.end - context->work_buffer.pos;
+    int remaining = buffer_get_remaining(&context->work_buffer);
     if(length > remaining)
     {
 	    memcpy(context->work_buffer.pos, ptr, remaining);
-	    context->work_buffer.pos += remaining;
-	    if(!flush_work_buffer(context, false))
+	    buffer_use_space(&context->work_buffer, remaining);
+	    flush_work_buffer(context, false);
+        if(!should_continue_parsing(context))
 	    {
-			// Assume flush_work_buffer() reported the error.
-	    	return false;
+	    	return;
 	    }
-	    return add_bytes(context, ptr + remaining, length - remaining);
+	    add_bytes(context, ptr + remaining, length - remaining);
+        return;
     }
 
     memcpy(context->work_buffer.pos, ptr, length);
-    context->work_buffer.pos += length;
-    if(is_high_water(&context->work_buffer))
+    buffer_use_space(&context->work_buffer, length);
+    if(buffer_is_high_water(&context->work_buffer))
     {
-        return flush_work_buffer(context, false);
+        flush_work_buffer(context, false);
     }
-    return true;
 }
 
-static bool add_int(bo_context* context, uint64_t src_value)
+static void add_int(bo_context* context, uint64_t src_value)
 {
     switch(context->input.data_width)
     {
         case WIDTH_1:
         {
             uint8_t value = (uint8_t)src_value;
-            return add_bytes(context, (uint8_t*)&value, sizeof(value));
+            add_bytes(context, (uint8_t*)&value, sizeof(value));
+            return;
         }
         case WIDTH_2:
         {
@@ -595,9 +637,11 @@ static bool add_int(bo_context* context, uint64_t src_value)
             {
             	uint8_t buff[sizeof(value)];
             	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
-	            return add_bytes(context, buff, sizeof(value));
+	            add_bytes(context, buff, sizeof(value));
+                return;
             }
-            return add_bytes(context, (uint8_t*)&value, sizeof(value));
+            add_bytes(context, (uint8_t*)&value, sizeof(value));
+            return;
         }
         case WIDTH_4:
         {
@@ -606,9 +650,11 @@ static bool add_int(bo_context* context, uint64_t src_value)
             {
             	uint8_t buff[sizeof(value)];
             	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
-	            return add_bytes(context, buff, sizeof(value));
+	            add_bytes(context, buff, sizeof(value));
+                return;
             }
-            return add_bytes(context, (uint8_t*)&value, sizeof(value));
+            add_bytes(context, (uint8_t*)&value, sizeof(value));
+            return;
         }
         case WIDTH_8:
         {
@@ -617,26 +663,28 @@ static bool add_int(bo_context* context, uint64_t src_value)
             {
             	uint8_t buff[sizeof(value)];
             	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
-	            return add_bytes(context, buff, sizeof(value));
+	            add_bytes(context, buff, sizeof(value));
+                return;
             }
-            return add_bytes(context, (uint8_t*)&value, sizeof(value));
+            add_bytes(context, (uint8_t*)&value, sizeof(value));
+            return;
         }
         case WIDTH_16:
 		    bo_notify_error(context, "TODO: Int width 16 not implemented yet");
-		    return false;
+		    return;
         default:
 		    bo_notify_error(context, "$d: Invalid int width", context->input.data_width);
-		    return false;
+		    return;
     }
 }
 
-static bool add_float(bo_context* context, double src_value)
+static void add_float(bo_context* context, double src_value)
 {
     switch(context->input.data_width)
     {
         case WIDTH_2:
 		    bo_notify_error(context, "TODO: Float width 2 not implemented yet");
-		    return false;
+		    return;
         case WIDTH_4:
         {
             float value = (float)src_value;
@@ -644,9 +692,11 @@ static bool add_float(bo_context* context, double src_value)
             {
             	uint8_t buff[sizeof(value)];
             	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
-	            return add_bytes(context, buff, sizeof(value));
+	            add_bytes(context, buff, sizeof(value));
+                return;
             }
-            return add_bytes(context, (uint8_t*)&value, sizeof(value));
+            add_bytes(context, (uint8_t*)&value, sizeof(value));
+            return;
         }
         case WIDTH_8:
         {
@@ -655,16 +705,18 @@ static bool add_float(bo_context* context, double src_value)
             {
             	uint8_t buff[sizeof(value)];
             	copy_swapped(buff, (uint8_t*)&value, sizeof(value));
-	            return add_bytes(context, buff, sizeof(value));
+	            add_bytes(context, buff, sizeof(value));
+                return;
             }
-            return add_bytes(context, (uint8_t*)&value, sizeof(value));
+            add_bytes(context, (uint8_t*)&value, sizeof(value));
+            return;
         }
         case WIDTH_16:
 		    bo_notify_error(context, "TODO: Float width 16 not implemented yet");
-		    return false;
+		    return;
         default:
 		    bo_notify_error(context, "%d: Invalid float width", context->input.data_width);
-		    return false;
+		    return;
     }
 }
 
@@ -694,7 +746,8 @@ bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream)
         {
             swap_buffer_endianness(buffer, bytes_read, context->input.data_width);
         }
-        if(!add_bytes(context, buffer, bytes_read))
+        add_bytes(context, buffer, bytes_read);
+        if(!should_continue_parsing(context))
         {
             return false;
         }
@@ -781,79 +834,82 @@ char* bo_unescape_string(char* str)
 // Parser Callbacks
 // ----------------
 
-bool bo_on_string(bo_context* context, const char* string)
+void bo_on_string(bo_context* context, const char* string)
 {
     LOG("On string [%s]", string);
-    return add_bytes(context, (uint8_t*)string, strlen(string));
+    add_bytes(context, (uint8_t*)string, strlen(string));
 }
 
-bool bo_on_number(bo_context* context, const char* string_value)
+void bo_on_number(bo_context* context, const char* string_value)
 {
     LOG("On number [%s]", string_value);
     if(!can_input_numbers(context))
     {
         bo_notify_error(context, "Must set input type before adding numbers");
-        return false;
+        return;
     }
 
     switch(context->input.data_type)
     {
         case TYPE_FLOAT:
-            return add_float(context, strtod(string_value, NULL));
+            add_float(context, strtod(string_value, NULL));
+            return;
         case TYPE_DECIMAL:
             bo_notify_error(context, "TODO: Unimplemented decimal type: %s", string_value);
-            return true;
+            return;
         case TYPE_INT:
-            return add_int(context, strtoul(string_value, NULL, 10));
+            add_int(context, strtoul(string_value, NULL, 10));
+            return;
         case TYPE_HEX:
-            return add_int(context, strtoul(string_value, NULL, 16));
+            add_int(context, strtoul(string_value, NULL, 16));
+            return;
         case TYPE_OCTAL:
-            return add_int(context, strtoul(string_value, NULL, 8));
+            add_int(context, strtoul(string_value, NULL, 8));
+            return;
         case TYPE_BOOLEAN:
-            return add_int(context, strtoul(string_value, NULL, 2));
+            add_int(context, strtoul(string_value, NULL, 2));
+            return;
         default:
             bo_notify_error(context, "Unknown type %d for value [%s]", context->input.data_type, string_value);
-        	return false;
+            return;
     }
 }
 
-bool bo_set_input_type(bo_context* context, const char* string_value)
+void bo_set_input_type(bo_context* context, const char* string_value)
 {
     LOG("Set input type [%s]", string_value);
     context->input.data_type = *string_value++;
     context->input.data_width = strtol(string_value, NULL, 10);
     string_value += context->input.data_width >= 10 ? 2 : 1;
     context->input.endianness = *string_value;
-    return true;
 }
 
-bool bo_set_input_type_binary(bo_context* context, const char* string_value)
+void bo_set_input_type_binary(bo_context* context, const char* string_value)
 {
     LOG("Set input type binary [%s]", string_value);
     context->input.data_type = TYPE_BINARY;
     context->input.data_width = strtol(string_value, NULL, 10);
     string_value += context->input.data_width >= 10 ? 2 : 1;
     context->input.endianness = *string_value;
-    return true;
 }
 
-bool bo_set_output_type(bo_context* context, const char* string_value)
+void bo_set_output_type(bo_context* context, const char* string_value)
 {
     LOG("Set output type [%s]", string_value);
     // If the output format changes, everything up to that point must be flushed.
-    if(!flush_work_buffer(context, true))
+    flush_work_buffer(context, true);
+    if(!should_continue_parsing(context))
     {
-        return false;
+        return;
     }
     context->output.data_type = *string_value++;
     context->output.data_width = strtol(string_value, NULL, 10);
     string_value += context->output.data_width >= 10 ? 2 : 1;
     context->output.endianness = *string_value++;
     context->output.text_width = strtol(string_value, NULL, 10);
-	return true;
 }
 
-bool bo_set_output_type_binary(bo_context* context, const char* string_value)
+void bo_set_output_type_binary(bo_context* context, const char* string_value)
 {
     LOG("Set output type binary [%s]", string_value);
     context->output.data_type = TYPE_BINARY;
@@ -863,10 +919,9 @@ bool bo_set_output_type_binary(bo_context* context, const char* string_value)
     context->output.text_width = 0;
     bo_set_prefix(context, "");
     bo_set_suffix(context, "");
-    return true;
 }
 
-bool bo_set_prefix(bo_context* context, const char* string_value)
+void bo_set_prefix(bo_context* context, const char* string_value)
 {
     LOG("Set prefix [%s]", string_value);
 	if(context->output.prefix != NULL)
@@ -874,10 +929,9 @@ bool bo_set_prefix(bo_context* context, const char* string_value)
 		free((void*)context->output.prefix);
 	}
 	context->output.prefix = strdup(string_value);
-	return true;
 }
 
-bool bo_set_suffix(bo_context* context, const char* string_value)
+void bo_set_suffix(bo_context* context, const char* string_value)
 {
     LOG("Set suffix [%s]", string_value);
 	if(context->output.suffix != NULL)
@@ -885,10 +939,9 @@ bool bo_set_suffix(bo_context* context, const char* string_value)
 		free((void*)context->output.suffix);
 	}
 	context->output.suffix = strdup(string_value);
-	return true;
 }
 
-bool bo_set_prefix_suffix(bo_context* context, const char* string_value)
+void bo_set_prefix_suffix(bo_context* context, const char* string_value)
 {
     LOG("Set prefix-suffix [%s]", string_value);
     switch(*string_value)
@@ -910,44 +963,46 @@ bool bo_set_prefix_suffix(bo_context* context, const char* string_value)
             break;
         default:
             bo_notify_error(context, "%s: Unknown prefix-suffix preset", string_value);
-            return false;
+            return;
     }
-    return true;
 }
 
 
-bool bo_on_preset(bo_context* context, const char* string_value)
+void bo_on_preset(bo_context* context, const char* string_value)
 {
-    return bo_set_prefix_suffix(context, string_value);
+    if(*string_value == 0)
+    {
+        bo_notify_error(context, "Missing preset value");
+        return;
+    }
+    bo_set_prefix_suffix(context, string_value);
 }
 
-bool bo_on_prefix(bo_context* context, const char* prefix)
+void bo_on_prefix(bo_context* context, const char* prefix)
 {
-    return bo_set_prefix(context, prefix);
+    bo_set_prefix(context, prefix);
 }
 
-bool bo_on_suffix(bo_context* context, const char* suffix)
+void bo_on_suffix(bo_context* context, const char* suffix)
 {
-    return bo_set_suffix(context, suffix);
+    bo_set_suffix(context, suffix);
 }
 
-bool bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness)
+void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness)
 {
     LOG("Set input type %c, width %d, endianness %c", data_type, data_width, endianness);
     context->input.data_type = data_type;
     context->input.data_width = data_width;
     context->input.endianness = endianness;
-    return true;
 }
 
-bool bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width)
+void bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width)
 {
     LOG("Set input type %c, width %d, endianness %c, print width %d", data_type, data_width, endianness, print_width);
     context->output.data_type = data_type;
     context->output.data_width = data_width;
     context->output.endianness = endianness;
     context->output.text_width = print_width;
-    return true;
 }
 
 
@@ -983,8 +1038,10 @@ bool bo_flush_and_destroy_context(void* void_context)
 {
     LOG("Destroy context");
     bo_context* context = (bo_context*)void_context;
-    bool is_successful = flush_work_buffer(context, true);
+    clear_error_condition(context);
+    flush_work_buffer(context, true);
     flush_output_buffer(context);
+    bool is_successful = !is_error_condition(context);
     bo_free_buffer(&context->work_buffer);
     bo_free_buffer(&context->output_buffer);
     if(context_user_data_is_owned_by_us(context))

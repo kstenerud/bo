@@ -94,6 +94,10 @@ bool bo_process_string(void* void_context, const char* string)
 {
     LOG("Process string [%s]", string);
     bo_context* context = (bo_context*)void_context;
+    context->is_at_end_of_input = false;
+    context->is_error_condition = false;
+    context->parse_should_continue = true;
+
     yyscan_t scanner;
     if(yylex_init(&scanner) != 0)
     {
@@ -119,6 +123,9 @@ bool bo_process_string(void* void_context, const char* string)
 bool bo_process_stream(void* void_context, FILE* input_stream)
 {
     bo_context* context = (bo_context*)void_context;
+    context->is_at_end_of_input = false;
+    context->is_error_condition = false;
+    context->parse_should_continue = true;
 
     LOG("Process stream as [%c]", context->input.data_type);
     if(context->input.data_type == TYPE_BINARY)

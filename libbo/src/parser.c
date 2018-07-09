@@ -205,6 +205,22 @@ static inline bool is_whitespace_character(int ch)
     return g_character_flags[ch] & CHARACTER_FLAG_WHITESPACE;
 }
 
+static inline bool is_at_end_of_input(bo_context* context)
+{
+    return context->is_at_end_of_input;
+}
+
+static inline bool is_last_data_segment(bo_context* context)
+{
+    return context->is_last_data_segment;
+}
+
+static inline void set_parse_interrupted_at(bo_context* context, char* position)
+{
+    context->parse_position = position;
+    context->parse_should_continue = false;
+}
+
 static bo_data_type extract_data_type(bo_context* context, char* token, int offset)
 {
     bo_data_type data_type = token[offset];
@@ -300,18 +316,20 @@ static bo_endianness extract_endianness(bo_context* context, char* token, int of
  * @param ptr Pointer to the current location in the input text.
  * @return pointer to the end of the token (the null termination).
  */
-static char* terminate_token(bo_context* context, char* ptr)
+static void terminate_token(bo_context* context)
 {
+    char* ptr = context->parse_position;
     for(; *ptr != 0; ptr++)
     {
         if(is_whitespace_character(*ptr))
         {
             *ptr = 0;
-            return ptr;
+            context->parse_position = ptr;
+            return;
         }
     }
-    context->at_end_of_input = true;
-    return ptr;
+    context->is_at_end_of_input = true;
+    context->parse_position = ptr;
 }
 
 /**
@@ -324,18 +342,27 @@ static char* terminate_token(bo_context* context, char* ptr)
  *
  * @param context The context.
  * @param string The string to parse.
- * @return A pointer to the closing quote, or NULL if an error occurred.
+ * @return A pointer to the beginning of the string, or NULL if an exception occurred.
  */
-static char* parse_string(bo_context* context, char* string)
+static char* parse_string(bo_context* context)
 {
+    char* string = context->parse_position;
     char* write_pos = string;
     char* read_pos = string;
     for(; *read_pos != '"'; read_pos++)
     {
         if(*read_pos == 0)
         {
-            bo_notify_error(context, "Unterminated string");
-            return NULL;
+            if(is_last_data_segment(context))
+            {
+                bo_notify_error(context, "Unterminated string");
+                return NULL;
+            }
+            else
+            {
+                set_parse_interrupted_at(context, read_pos);
+                return string;
+            }
         }
 
         if(*read_pos != '\\')
@@ -344,11 +371,22 @@ static char* parse_string(bo_context* context, char* string)
             continue;
         }
 
+        char* escape_pos = read_pos;
+        read_pos++;
+
         switch(*read_pos)
         {
             case 0:
-                bo_notify_error(context, "Unterminated escape sequence");
-                return NULL;
+                if(is_last_data_segment(context))
+                {
+                    bo_notify_error(context, "Unterminated escape sequence");
+                    return NULL;
+                }
+                else
+                {
+                    set_parse_interrupted_at(context, escape_pos);
+                    return string;
+                }
             case 'r': *write_pos++ = '\r'; break;
             case 'n': *write_pos++ = '\n'; break;
             case 't': *write_pos++ = '\t'; break;
@@ -360,8 +398,16 @@ static char* parse_string(bo_context* context, char* string)
             {
                 if(!is_hex_character(read_pos[1]))
                 {
-                    bo_notify_error(context, "Invalid hex sequence");
-                    return NULL;
+                    if(is_last_data_segment(context) && read_pos[1] == 0)
+                    {
+                        set_parse_interrupted_at(context, escape_pos);
+                        return string;
+                    }
+                    else
+                    {
+                        bo_notify_error(context, "Invalid hex sequence");
+                        return NULL;
+                    }
                 }
                 char number_buffer[3] = {read_pos[0], read_pos[1], 0};
                 read_pos += 1;
@@ -375,8 +421,17 @@ static char* parse_string(bo_context* context, char* string)
                 || !is_hex_character(read_pos[3])
                 || !is_hex_character(read_pos[4]))
                 {
-                    bo_notify_error(context, "Invalid unicode codepoint");
-                    return NULL;
+                    if(!is_last_data_segment(context) &&
+                        (read_pos[1] == 0) || (read_pos[2] == 0) || (read_pos[3] == 0) || (read_pos[4] == 0))
+                    {
+                        set_parse_interrupted_at(context, escape_pos);
+                        return string;
+                    }
+                    else
+                    {
+                        bo_notify_error(context, "Invalid unicode codepoint");
+                        return NULL;
+                    }
                 }
                 char number_buffer[5] = {read_pos[1], read_pos[2], read_pos[3], read_pos[4], 0};
                 read_pos += 4;
@@ -404,7 +459,8 @@ static char* parse_string(bo_context* context, char* string)
         }
     }
     *write_pos = 0;
-    return read_pos;
+    context->parse_position = read_pos;
+    return string;
 }
 
 
@@ -413,89 +469,125 @@ static char* parse_string(bo_context* context, char* string)
 // Events
 // ------
 
-static void on_unknown_token(bo_context* context, char* ptr)
+static void on_unknown_token(bo_context* context)
 {
-    char* token = ptr;
-    terminate_token(context, token);
+    char* token = context->parse_position;
+    terminate_token(context);
     bo_notify_error(context, "%s: Unknown token", token);
 }
 
-static char* on_string(bo_context* context, char* ptr)
+static void on_string(bo_context* context)
 {
-    char* string = ptr + 1;
-    char* string_end = parse_string(context, string);
-    if(string_end == NULL || !bo_on_string(context, string)) return NULL;
-    return string_end;
+    context->parse_position++;
+    char* string = parse_string(context);
+    if(!should_continue_parsing(context))
+    {
+        return;
+    }
+
+    bo_on_string(context, string);
 }
 
-static char* on_prefix(bo_context* context, char* ptr)
+static char* prefix_suffix_process_common(bo_context* context)
 {
-    if(ptr[1] != '"')
+    char* token = context->parse_position;
+    if(token[1] != '"')
     {
-        terminate_token(context, ptr);
-        bo_notify_error(context, "%s: Not a string", ptr + 1);
+        terminate_token(context);
+        bo_notify_error(context, "%s: Not a string", token + 1);
         return NULL;
     }
 
-    char* prefix = ptr + 2;
-    char* prefix_end = parse_string(context, prefix);
-    if(prefix_end == NULL || !bo_on_prefix(context, prefix)) return NULL;
-    return prefix_end;
-}
-
-static char* on_suffix(bo_context* context, char* ptr)
-{
-    if(ptr[1] != '"')
+    context->parse_position += 2;
+    char* string = parse_string(context);
+    if(!should_continue_parsing(context))
     {
-        terminate_token(context, ptr);
-        bo_notify_error(context, "%s: Not a string", ptr + 1);
-        return NULL;
+        context->parse_position = token;
     }
-
-    char* suffix = ptr + 2;
-    char* suffix_end = parse_string(context, suffix);
-    if(suffix_end == NULL || !bo_on_suffix(context, suffix)) return NULL;
-    return suffix_end;
+    return string;
 }
 
-static char* on_input_type(bo_context* context, char* ptr)
+static void on_prefix(bo_context* context)
 {
-    char* token = ptr;
-    char* token_end = terminate_token(context, ptr);
+    char* string = prefix_suffix_process_common(context);
+    if(!should_continue_parsing(context))
+    {
+        return;
+    }
+    bo_on_prefix(context, string);
+}
+
+static void on_suffix(bo_context* context)
+{
+    char* string = prefix_suffix_process_common(context);
+    if(!should_continue_parsing(context))
+    {
+        return;
+    }
+    bo_on_suffix(context, string);
+}
+
+static void on_input_type(bo_context* context)
+{
+    char* token = context->parse_position;
+    terminate_token(context);
     int offset = 1;
 
     bo_data_type data_type = extract_data_type(context, token, offset);
-    if(data_type == TYPE_NONE) return NULL;
+    if(!should_continue_parsing(context))
+    {
+        context->parse_position = token;
+        return;
+    }
     offset += 1;
 
     int data_width = extract_data_width(context, token, offset);
-    if(data_width == 0) return NULL;
+    if(!should_continue_parsing(context))
+    {
+        context->parse_position = token;
+        return;
+    }
     offset += data_width > 8 ? 2 : 1;
 
     bo_endianness endianness = BO_ENDIAN_NONE;
     if(data_width > 1)
     {
         endianness = extract_endianness(context, token, offset);
-        if(endianness == BO_ENDIAN_NONE) return NULL;
+        if(!should_continue_parsing(context))
+        {
+            context->parse_position = token;
+            return;
+        }
     }
 
-    if(!bo_on_input_type(context, data_type, data_width, endianness)) return NULL;
-
-    return token_end;
+    bo_on_input_type(context, data_type, data_width, endianness);
+    if(!should_continue_parsing(context))
+    {
+        context->parse_position = token;
+        return;
+    }
 }
 
-static char* on_output_type(bo_context* context, char* ptr)
+static void on_output_type(bo_context* context)
 {
-    char* token = ptr;
-    char* token_end = terminate_token(context, ptr);
+    char* token = context->parse_position;
+    terminate_token(context);
     int offset = 1;
 
     bo_data_type data_type = extract_data_type(context, token, offset);
-    if(data_type == TYPE_NONE) return NULL;
+    if(!should_continue_parsing(context))
+    {
+        context->parse_position = token;
+        return;
+    }
     offset += 1;
 
     int data_width = extract_data_width(context, token, offset);
-    if(data_width == 0) return NULL;
+    if(!should_continue_parsing(context))
+    {
+        context->parse_position = token;
+        return;
+    }
     offset += data_width > 8 ? 2 : 1;
 
     bo_endianness endianness = BO_ENDIAN_NONE;
@@ -504,49 +596,59 @@ static char* on_output_type(bo_context* context, char* ptr)
     if(data_width > 1 || token[offset] != 0)
     {
         endianness = extract_endianness(context, token, offset);
-        if(endianness == BO_ENDIAN_NONE) return NULL;
+        if(!should_continue_parsing(context))
+        {
+            context->parse_position = token;
+            return;
+        }
         offset += 1;
 
         if(data_type != TYPE_BINARY)
         {
             if(!is_decimal_character(token[offset]))
             {
+                context->parse_position = token;
                 char* reason = token[offset] == 0 ? "Missing print width" : "Not a valid print width";
                 bo_notify_error(context, "%s: offset %d: %s", token, offset, reason);
-                return NULL;
+                return;
             }
 
             print_width = strtoul(token + offset, NULL, 10);
         }
     }
 
-    if(!bo_on_output_type(context, data_type, data_width, endianness, print_width)) return NULL;
-    return token_end;
-}
-
-static char* on_preset(bo_context* context, char* ptr)
-{
-    char* preset = ptr + 1;
-    char* preset_end = terminate_token(context, preset);
-    if(preset_end == preset)
+    bo_on_output_type(context, data_type, data_width, endianness, print_width);
+    if(!should_continue_parsing(context))
     {
-        bo_notify_error(context, "Preset type missing");
-        return NULL;
+        context->parse_position = token;
+        return;
     }
-
-    if(!bo_on_preset(context, preset)) return NULL;
-
-    return preset_end;
 }
 
-static char* on_number(bo_context* context, char* ptr)
+static void on_preset(bo_context* context)
 {
-    char* number = ptr;
-    char* number_end = terminate_token(context, ptr);
+    char* token = context->parse_position;
+    terminate_token(context);
 
-    if(!bo_on_number(context, number)) return NULL;
+    bo_on_preset(context, token + 1);
+    if(!should_continue_parsing(context))
+    {
+        context->parse_position = token;
+        return;
+    }
+}
 
-    return number_end;
+static void on_number(bo_context* context)
+{
+    char* token = context->parse_position;
+    terminate_token(context);
+
+    bo_on_number(context, token);
+    if(!should_continue_parsing(context))
+    {
+        context->parse_position = token;
+        return;
+    }
 }
 
 
@@ -555,45 +657,60 @@ static char* on_number(bo_context* context, char* ptr)
 // Parse API
 // ---------
 
-bool bo_parse(void* void_context, const char* string)
+char* bo_process(void* void_context, char* string, bool is_last_data_segment)
 {
     bo_context* context = (bo_context*)void_context;
-    for(char* ptr = string; *ptr != 0 && !context->at_end_of_input && !context->at_end_of_parse; ptr++)
+    context->parse_position = string;
+    context->is_last_data_segment = is_last_data_segment;
+    context->is_at_end_of_input = false;
+    context->is_error_condition = false;
+    context->parse_should_continue = true;
+
+    for(; !is_at_end_of_input(context) && should_continue_parsing(context) && *context->parse_position != 0;
+        context->parse_position++)
     {
-        switch(*ptr)
+        switch(*context->parse_position)
         {
             case 0:
                 break;
-            case ' ': case '\t': case '\r': case '\n':
+            case '\n':
+                // TODO: Line count
+                break;
+            case ' ': case '\t': case '\r':
                 break;
             case '"':
-                if((ptr = on_string(context, ptr)) == NULL) return false;
+                on_string(context);
                 break;
             case 'i':
-                if((ptr = on_input_type(context, ptr)) == NULL) return false;
+                on_input_type(context);
                 break;
             case 'o':
-                if((ptr = on_output_type(context, ptr)) == NULL) return false;
+                on_output_type(context);
                 break;
             case 'p':
-                if((ptr = on_prefix(context, ptr)) == NULL) return false;
+                on_prefix(context);
                 break;
             case 's':
-                if((ptr = on_suffix(context, ptr)) == NULL) return false;
+                on_suffix(context);
                 break;
             case 'P':
-                if((ptr = on_preset(context, ptr)) == NULL) return false;
+                on_preset(context);
                 break;
             default:
-                if(is_numeric_character(*ptr))
+                if(is_numeric_character(*context->parse_position))
                 {
-                    if((ptr = on_number(context, ptr)) == NULL) return false;
+                    on_number(context);
                     break;
                 }
-                on_unknown_token(context, ptr);
-                return false;
+                on_unknown_token(context);
+                break;
         }
     }
+
     // TODO: Check for end of parse and pass any remaining data in directly.
-    return true;
+    if(is_error_condition(context))
+    {
+        return NULL;
+    }
+    return context->parse_position;
 }

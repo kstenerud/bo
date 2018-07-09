@@ -27,14 +27,20 @@ extern "C" {
 #endif
 
 
+// #define BO_ENABLE_LOGGING 1
+
+
 #include <stdbool.h>
 #include <stdint.h>
 
 #include "bo/bo.h"
 
 
+#if BO_ENABLE_LOGGING
+#define LOG(...) do {fprintf(stdout, "LOG: ");fprintf(stdout, __VA_ARGS__);fprintf(stdout, "\n");fflush(stdout);} while(0)
+#else
 #define LOG(FMT, ...)
-// #define LOG(...) do {fprintf(stdout, "LOG: ");fprintf(stdout, __VA_ARGS__);fprintf(stdout, "\n");fflush(stdout);} while(0)
+#endif
 
 #define BO_NATIVE_INT_ENDIANNESS (((__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
                                   ((__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
@@ -104,29 +110,33 @@ typedef struct
     error_callback on_error;
     output_callback on_output;
     void* user_data;
-    bool at_end_of_input;
-    bool at_end_of_parse;
+
+    char* parse_position;
+    bool is_last_data_segment;
+    bool is_at_end_of_input;
+    bool is_error_condition;
+    bool parse_should_continue;
 } bo_context;
 
 
 bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream);
 
-bool bo_on_string(bo_context* context, const char* string);
-bool bo_on_number(bo_context* context, const char* string_value);
+void bo_on_string(bo_context* context, const char* string);
+void bo_on_number(bo_context* context, const char* string_value);
 
-bool bo_set_input_type(bo_context* context, const char* string_value);
-bool bo_set_output_type(bo_context* context, const char* string_value);
-bool bo_set_input_type_binary(bo_context* context, const char* string_value);
-bool bo_set_output_type_binary(bo_context* context, const char* string_value);
-bool bo_set_prefix(bo_context* context, const char* string_value);
-bool bo_set_suffix(bo_context* context, const char* string_value);
-bool bo_set_prefix_suffix(bo_context* context, const char* string_value);
+void bo_set_input_type(bo_context* context, const char* string_value);
+void bo_set_output_type(bo_context* context, const char* string_value);
+void bo_set_input_type_binary(bo_context* context, const char* string_value);
+void bo_set_output_type_binary(bo_context* context, const char* string_value);
+void bo_set_prefix(bo_context* context, const char* string_value);
+void bo_set_suffix(bo_context* context, const char* string_value);
+void bo_set_prefix_suffix(bo_context* context, const char* string_value);
 
-bool bo_on_preset(bo_context* context, const char* string_value);
-bool bo_on_prefix(bo_context* context, const char* prefix);
-bool bo_on_suffix(bo_context* context, const char* suffix);
-bool bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness);
-bool bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width);
+void bo_on_preset(bo_context* context, const char* string_value);
+void bo_on_prefix(bo_context* context, const char* prefix);
+void bo_on_suffix(bo_context* context, const char* suffix);
+void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness);
+void bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width);
 
 
 /**
@@ -139,6 +149,16 @@ char* bo_unescape_string(char* str);
 
 void bo_notify_error(bo_context* context, char* fmt, ...);
 
+
+static inline bool should_continue_parsing(bo_context* context)
+{
+    return context->parse_should_continue;
+}
+
+static inline bool is_error_condition(bo_context* context)
+{
+    return context->is_error_condition;
+}
 
 #ifdef __cplusplus
 }

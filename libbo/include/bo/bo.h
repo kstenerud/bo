@@ -103,7 +103,7 @@ bool bo_process_stream(void* context, FILE* src);
 
 
 // TODO: Temporary
-bool bo_parse(void* context, const char* string);
+char* bo_process(void* void_context, char* string, bool is_last_data_segment);
 
 
 #ifdef __cplusplus
