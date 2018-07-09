@@ -45,6 +45,11 @@
 #define OUTPUT_BUFFER_OVERHEAD_SIZE 100
 
 
+#define BO_NATIVE_INT_ENDIANNESS (((__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
+                                  ((__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
+#define BO_NATIVE_FLOAT_ENDIANNESS (((__FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
+                                    ((__FLOAT_WORD_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
+
 
 // ---------------
 // Error Reporting
@@ -384,12 +389,6 @@ static void buffer_use_space(bo_buffer* buffer, int bytes)
 // Internal
 // --------
 
-static bool context_user_data_is_owned_by_us(bo_context* context)
-{
-    return false;
-    // return context->on_output == file_on_output;
-}
-
 static inline bool can_input_numbers(bo_context* context)
 {
     return context->input.data_type != TYPE_NONE;
@@ -661,114 +660,6 @@ static void add_float(bo_context* context, double src_value)
 
 
 
-// ------------
-// Internal API
-// ------------
-
-bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream)
-{
-    uint8_t buffer[WORK_BUFFER_SIZE / 2];
-    const size_t bytes_to_read = sizeof(buffer);
-    size_t bytes_read;
-    do
-    {
-        bytes_read = fread(buffer, 1, bytes_to_read, input_stream);
-        if(bytes_read != bytes_to_read)
-        {
-            if(ferror(input_stream))
-            {
-                bo_notify_posix_error(context, "Error reading file");
-                return false;
-            }
-        }
-        if(context->input.data_width != 1 && context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
-        {
-            swap_buffer_endianness(buffer, bytes_read, context->input.data_width);
-        }
-        add_bytes(context, buffer, bytes_read);
-        if(!should_continue_parsing(context))
-        {
-            return false;
-        }
-    } while(bytes_read == bytes_to_read);
-
-    return true;
-}
-
-char* bo_unescape_string(char* str)
-{
-    char* write_pos = str;
-    char* read_pos = str;
-    const char* const end_pos = str + strlen(str);
-    while(*read_pos != 0)
-    {
-        char ch = *read_pos++;
-        if(ch == '\\')
-        {
-            char* checkpoint = read_pos - 1;
-            ch = *read_pos++;
-            switch(ch)
-            {
-                case 0:
-                    return checkpoint;
-                case 'r': *write_pos++ = '\r'; break;
-                case 'n': *write_pos++ = '\n'; break;
-                case 't': *write_pos++ = '\t'; break;
-                case '\\': *write_pos++ = '\\'; break;
-                case '\"': *write_pos++ = '\"'; break;
-                case '0': case '1': case '2': case '3':
-                case '4': case '5': case '6': case '7':
-                case '8': case '9': case 'a': case 'b':
-                case 'c': case 'd': case 'e': case 'f':
-                {
-                    char oldch = read_pos[2];
-                    read_pos[2] = 0;
-                    unsigned int decoded = strtoul(read_pos, NULL, 16);
-                    read_pos[2] = oldch;
-                    read_pos += 2;
-                    *write_pos++ = decoded;
-                    break;
-                }
-                case 'u':
-                {
-                    if(read_pos + 4 > end_pos)
-                    {
-                        return checkpoint;
-                    }
-                    char oldch = read_pos[4];
-                    read_pos[4] = 0;
-                    unsigned int codepoint = strtoul(read_pos, NULL, 16);
-                    read_pos[4] = oldch;
-                    read_pos += 4;
-                    if(codepoint <= 0x7f)
-                    {
-                        *write_pos++ = (char)codepoint;
-                        break;
-                    }
-                    if(codepoint <= 0x7ff)
-                    {
-                        *write_pos++ = (char)((codepoint >> 6) | 0xc0);
-                        *write_pos++ = (char)((codepoint & 0x3f) | 0x80);
-                        break;
-                    }
-                    *write_pos++ = (char)((codepoint >> 12) | 0xe0);
-                    *write_pos++ = (char)(((codepoint >> 6) & 0x3f) | 0x80);
-                    *write_pos++ = (char)((codepoint & 0x3f) | 0x80);
-                    break;
-                }
-                default:
-                    return checkpoint;
-            }
-        }
-        else
-        {
-            *write_pos++ = ch;
-        }
-    }
-    *write_pos = 0;
-    return write_pos;
-}
-
 // ----------------
 // Parser Callbacks
 // ----------------
@@ -823,89 +714,29 @@ void bo_on_number(bo_context* context, const char* string_value)
     }
 }
 
-void bo_set_input_type(bo_context* context, const char* string_value)
+void bo_on_preset(bo_context* context, const char* string_value)
 {
-    LOG("Set input type [%s]", string_value);
-    context->input.data_type = *string_value++;
-    context->input.data_width = strtol(string_value, NULL, 10);
-    string_value += context->input.data_width >= 10 ? 2 : 1;
-    context->input.endianness = *string_value;
-}
-
-void bo_set_input_type_binary(bo_context* context, const char* string_value)
-{
-    LOG("Set input type binary [%s]", string_value);
-    context->input.data_type = TYPE_BINARY;
-    context->input.data_width = strtol(string_value, NULL, 10);
-    string_value += context->input.data_width >= 10 ? 2 : 1;
-    context->input.endianness = *string_value;
-}
-
-void bo_set_output_type(bo_context* context, const char* string_value)
-{
-    LOG("Set output type [%s]", string_value);
-    // If the output format changes, everything up to that point must be flushed.
-    flush_work_buffer(context, true);
-    if(!should_continue_parsing(context))
+    LOG("Set preset [%s]", string_value);
+    if(*string_value == 0)
     {
+        bo_notify_error(context, "Missing preset value");
         return;
     }
-    context->output.data_type = *string_value++;
-    context->output.data_width = strtol(string_value, NULL, 10);
-    string_value += context->output.data_width >= 10 ? 2 : 1;
-    context->output.endianness = *string_value++;
-    context->output.text_width = strtol(string_value, NULL, 10);
-}
 
-void bo_set_output_type_binary(bo_context* context, const char* string_value)
-{
-    LOG("Set output type binary [%s]", string_value);
-    context->output.data_type = TYPE_BINARY;
-    context->input.data_width = strtol(string_value, NULL, 10);
-    string_value += context->input.data_width >= 10 ? 2 : 1;
-    context->input.endianness = *string_value;
-    context->output.text_width = 0;
-    bo_set_prefix(context, "");
-    bo_set_suffix(context, "");
-}
-
-void bo_set_prefix(bo_context* context, const char* string_value)
-{
-    LOG("Set prefix [%s]", string_value);
-	if(context->output.prefix != NULL)
-	{
-		free((void*)context->output.prefix);
-	}
-	context->output.prefix = strdup(string_value);
-}
-
-void bo_set_suffix(bo_context* context, const char* string_value)
-{
-    LOG("Set suffix [%s]", string_value);
-	if(context->output.suffix != NULL)
-	{
-		free((void*)context->output.suffix);
-	}
-	context->output.suffix = strdup(string_value);
-}
-
-void bo_set_prefix_suffix(bo_context* context, const char* string_value)
-{
-    LOG("Set prefix-suffix [%s]", string_value);
     switch(*string_value)
     {
         case 's':
-            bo_set_suffix(context, " ");
+            bo_on_suffix(context, " ");
             break;
         case 'c':
-            bo_set_suffix(context, ", ");
+            bo_on_suffix(context, ", ");
             switch(context->output.data_type)
             {
                 case TYPE_HEX:
-                    bo_set_prefix(context, "0x");
+                    bo_on_prefix(context, "0x");
                     break;
                 case TYPE_OCTAL:
-                    bo_set_prefix(context, "0");
+                    bo_on_prefix(context, "0");
                     break;
             }
             break;
@@ -915,25 +746,24 @@ void bo_set_prefix_suffix(bo_context* context, const char* string_value)
     }
 }
 
-
-void bo_on_preset(bo_context* context, const char* string_value)
-{
-    if(*string_value == 0)
-    {
-        bo_notify_error(context, "Missing preset value");
-        return;
-    }
-    bo_set_prefix_suffix(context, string_value);
-}
-
 void bo_on_prefix(bo_context* context, const char* prefix)
 {
-    bo_set_prefix(context, prefix);
+    LOG("Set prefix [%s]", prefix);
+    if(context->output.prefix != NULL)
+    {
+        free((void*)context->output.prefix);
+    }
+    context->output.prefix = strdup(prefix);
 }
 
 void bo_on_suffix(bo_context* context, const char* suffix)
 {
-    bo_set_suffix(context, suffix);
+    LOG("Set suffix [%s]", suffix);
+    if(context->output.suffix != NULL)
+    {
+        free((void*)context->output.suffix);
+    }
+    context->output.suffix = strdup(suffix);
 }
 
 void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness)
@@ -1005,10 +835,6 @@ bool bo_flush_and_destroy_context(void* void_context)
     bool is_successful = !is_error_condition(context);
     bo_free_buffer(&context->work_buffer);
     bo_free_buffer(&context->output_buffer);
-    if(context_user_data_is_owned_by_us(context))
-    {
-        free(context->user_data);
-    }
     if(context->output.prefix != NULL)
     {
         free((void*)context->output.prefix);

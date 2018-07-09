@@ -42,11 +42,6 @@ extern "C" {
 #define LOG(FMT, ...)
 #endif
 
-#define BO_NATIVE_INT_ENDIANNESS (((__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
-                                  ((__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
-#define BO_NATIVE_FLOAT_ENDIANNESS (((__FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
-                                    ((__FLOAT_WORD_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
-
 
 typedef enum
 {
@@ -120,20 +115,11 @@ void bo_on_bytes(bo_context* context, char* data, int length);
 void bo_on_string(bo_context* context, const char* string);
 void bo_on_number(bo_context* context, const char* string_value);
 
-void bo_set_input_type(bo_context* context, const char* string_value);
-void bo_set_output_type(bo_context* context, const char* string_value);
-void bo_set_input_type_binary(bo_context* context, const char* string_value);
-void bo_set_output_type_binary(bo_context* context, const char* string_value);
-void bo_set_prefix(bo_context* context, const char* string_value);
-void bo_set_suffix(bo_context* context, const char* string_value);
-void bo_set_prefix_suffix(bo_context* context, const char* string_value);
-
 void bo_on_preset(bo_context* context, const char* string_value);
 void bo_on_prefix(bo_context* context, const char* prefix);
 void bo_on_suffix(bo_context* context, const char* suffix);
 void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness);
 void bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width);
-
 
 void bo_notify_error(bo_context* context, char* fmt, ...);
 
