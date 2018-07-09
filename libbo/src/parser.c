@@ -657,6 +657,21 @@ static void on_number(bo_context* context)
 // Parse API
 // ---------
 
+char* bo_process_data(void* void_context, char* data, int data_length, bool is_last_data_segment)
+{
+    bo_context* context = (bo_context*)void_context;
+    context->parse_position = data;
+    if(context->input.data_type == TYPE_BINARY)
+    {
+        bo_on_bytes(context, data, data_length);
+        return context->parse_position;
+    }
+
+    // TODO
+    data[data_length] = 0;
+    bo_process(context, data, is_last_data_segment);
+}
+
 char* bo_process(void* void_context, char* string, bool is_last_data_segment)
 {
     bo_context* context = (bo_context*)void_context;

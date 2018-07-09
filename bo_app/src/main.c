@@ -167,13 +167,38 @@ static bool on_output(void* void_user_data, char* data, int length)
     int bytes_written = fwrite(data, 1, length, output_stream);
     if(bytes_written != length)
     {
-    	perror_exit("Error writing to putput stream");
+    	perror("Error writing to putput stream");
         return false;
     }
     return true;
 }
 
+static bool process_stream(void* context, FILE* stream)
+{
+	char buffer[10000];
+	const int bytes_to_read = sizeof(buffer) - 1;
+	int bytes_read;
+	bool is_successful = true;
 
+	while((bytes_read = fread(buffer, 1, bytes_to_read, stream)) > 0)
+	{
+		if(ferror(stream))
+		{
+			perror("Error reading from input stream");
+			is_successful = false;
+		}
+		buffer[bytes_read] = 0;
+		bool is_last = bytes_read != bytes_to_read;
+		bo_process_data(context, buffer, bytes_read, is_last);
+	}
+	if(is_successful && ferror(stream))
+	{
+		perror("Error reading from input stream");
+		is_successful = false;
+	}
+
+	return is_successful;
+}
 
 
 int main(int argc, char* argv[])
@@ -220,8 +245,8 @@ int main(int argc, char* argv[])
 
 	for(int i = optind; i < argc; i++)
 	{
-		if(bo_process(context, argv[i], true) == NULL)
 		// if(bo_process_string(context, argv[i]) < 0)
+		if(bo_process(context, argv[i], true) == NULL)
 		{
 			goto failed;
 		}
@@ -230,7 +255,8 @@ int main(int argc, char* argv[])
 	for(int i = 0; i < in_file_count; i++)
 	{
 		FILE* in_stream = new_input_stream(in_filenames[i]);
-		bool result = bo_process_stream(context, in_stream);
+		// bool result = bo_process_stream(context, in_stream);
+		bool result = process_stream(context, in_stream);
 		close_stream(in_stream);
 		if(!result)
 		{

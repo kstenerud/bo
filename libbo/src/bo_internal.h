@@ -121,6 +121,7 @@ typedef struct
 
 bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream);
 
+void bo_on_bytes(bo_context* context, char* data, int length);
 void bo_on_string(bo_context* context, const char* string);
 void bo_on_number(bo_context* context, const char* string_value);
 

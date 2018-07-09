@@ -773,6 +773,15 @@ char* bo_unescape_string(char* str)
 // Parser Callbacks
 // ----------------
 
+void bo_on_bytes(bo_context* context, char* data, int length)
+{
+    if(context->input.data_width != 1 && context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
+    {
+        swap_buffer_endianness(data, length, context->input.data_width);
+    }
+    add_bytes(context, data, length);    
+}
+
 void bo_on_string(bo_context* context, const char* string)
 {
     LOG("On string [%s]", string);
