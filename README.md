@@ -24,8 +24,6 @@ Building
 Requirements:
 
   * CMake
-  * Bison
-  * Flex
   * C/C++ compiler
 
 Commands:
@@ -285,7 +283,6 @@ All of bo's functionality is in the library libbo. The API is small (6 calls, 2 
 Issues
 ------
 
-  * Parse error messages are still pretty bad (basically straight from flex and bison), and don't help much for diagnosing syntax errors.
   * IEEE754 decimal types are not yet implemented.
   * 128 bit values are not yet implemented.
   * 16-bit ieee754 floating point is not yet implemented.

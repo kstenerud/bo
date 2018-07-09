@@ -1,17 +1,8 @@
 project(libo VERSION 1.0.0 LANGUAGES C)
 
-find_package(BISON)
-find_package(FLEX)
-
-bison_target(BisonParser src/bo.y ${CMAKE_CURRENT_BINARY_DIR}/parser.c)
-flex_target(FlexScanner src/bo.l ${CMAKE_CURRENT_BINARY_DIR}/tokens.c)
-add_flex_bison_dependency(FlexScanner BisonParser)
-
 add_library(libbo
     src/library.c
     src/parser.c
-    ${BISON_BisonParser_OUTPUTS}
-    ${FLEX_FlexScanner_OUTPUTS}
 )
 
 target_include_directories(libbo

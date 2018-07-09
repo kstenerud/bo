@@ -245,7 +245,6 @@ int main(int argc, char* argv[])
 
 	for(int i = optind; i < argc; i++)
 	{
-		// if(bo_process_string(context, argv[i]) < 0)
 		if(bo_process(context, argv[i], true) == NULL)
 		{
 			goto failed;
@@ -255,7 +254,6 @@ int main(int argc, char* argv[])
 	for(int i = 0; i < in_file_count; i++)
 	{
 		FILE* in_stream = new_input_stream(in_filenames[i]);
-		// bool result = bo_process_stream(context, in_stream);
 		bool result = process_stream(context, in_stream);
 		close_stream(in_stream);
 		if(!result)

@@ -47,8 +47,6 @@ extern "C" {
 #define BO_NATIVE_FLOAT_ENDIANNESS (((__FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
                                     ((__FLOAT_WORD_ORDER__ == __ORDER_BIG_ENDIAN__) * BO_ENDIAN_BIG))
 
-#define EARLY_EXIT_BINARY_MODE_MARKER 0x1234
-
 
 typedef enum
 {
@@ -91,7 +89,6 @@ typedef struct
 {
     bo_buffer work_buffer;
     bo_buffer output_buffer;
-    FILE* output_stream;
     struct
     {
         bo_data_type data_type;
@@ -119,8 +116,6 @@ typedef struct
 } bo_context;
 
 
-bool bo_process_stream_as_binary(bo_context* context, FILE* input_stream);
-
 void bo_on_bytes(bo_context* context, char* data, int length);
 void bo_on_string(bo_context* context, const char* string);
 void bo_on_number(bo_context* context, const char* string_value);
@@ -139,14 +134,6 @@ void bo_on_suffix(bo_context* context, const char* suffix);
 void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness);
 void bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width);
 
-
-/**
- * Escapes a string in-place (modifies the original string).
- *
- * @param str The string to escape (this string may get modified).
- * @return pointer to the offending character on failure, pointer to the end of the string (\0) on success.
- */
-char* bo_unescape_string(char* str);
 
 void bo_notify_error(bo_context* context, char* fmt, ...);
 
