@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-// #define bo_process_string(CONTEXT, STRING) do_process(CONTEXT, (char*)STRING)
+#define bo_process_string(CONTEXT, STRING) do_process(CONTEXT, (char*)STRING)
 static bool do_process(void* context, const char* string)
 {
 	return bo_process(context, (char*)string, true) != NULL;

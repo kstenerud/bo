@@ -66,15 +66,6 @@ const char* bo_version();
 void* bo_new_context(void* user_data, output_callback on_output, error_callback on_error);
 
 /**
- * Create a new bo context that streams to a file.
- *
- * @param user_data User-specified contextual data.
- * @param output_stream The file stream to output processed data to.
- * @param on_error Called if an error occurs while processing.
- */
-void* bo_new_stream_context(void* user_data, FILE* output_stream, error_callback on_error);
-
-/**
  * Flushes a context's output and destroys the context.
  *
  * @param context The context object.

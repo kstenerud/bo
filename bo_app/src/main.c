@@ -90,9 +90,17 @@ static void on_error(void* user_data, const char* message)
 	fprintf(stderr, "Error: %s\n", message);
 }
 
-#define PERROR_EXIT(FMT, ...) do { fprintf(stderr, FMT, __VA_ARGS__); perror(""); exit(1); } while(false)
+static void perror_exit(const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	vfprintf(stderr, fmt, args);
+	va_end(args);
+	perror("");
+	exit(1);
+}
 
-FILE* new_output_stream(const char* filename)
+static FILE* new_output_stream(const char* filename)
 {
 	if(filename == NULL)
 	{
@@ -106,12 +114,12 @@ FILE* new_output_stream(const char* filename)
 	FILE* stream = fopen(filename, "wb");
 	if(stream == NULL)
 	{
-		PERROR_EXIT("Could not open %s for writing", filename);
+		perror_exit("Could not open %s for writing", filename);
 	}
 	return stream;
 }
 
-FILE* new_input_stream(const char* filename)
+static FILE* new_input_stream(const char* filename)
 {
 	if(filename == NULL)
 	{
@@ -125,12 +133,12 @@ FILE* new_input_stream(const char* filename)
 	FILE* stream = fopen(filename, "rb");
 	if(stream == NULL)
 	{
-		PERROR_EXIT("Could not open %s for reading", filename);
+		perror_exit("Could not open %s for reading", filename);
 	}
 	return stream;
 }
 
-void close_stream(FILE* stream)
+static void close_stream(FILE* stream)
 {
 	if(stream == NULL || stream == stdin || stream == stdout)
 	{
@@ -152,6 +160,21 @@ static void teardown(void* context, FILE* out_stream, const char** in_filenames,
 		free((void*)in_filenames[i]);
 	}
 }
+
+static bool on_output(void* void_user_data, char* data, int length)
+{
+	FILE* output_stream = (FILE*)void_user_data;
+    int bytes_written = fwrite(data, 1, length, output_stream);
+    if(bytes_written != length)
+    {
+    	perror_exit("Error writing to putput stream");
+        return false;
+    }
+    return true;
+}
+
+
+
 
 int main(int argc, char* argv[])
 {
@@ -193,11 +216,12 @@ int main(int argc, char* argv[])
 		goto failed;
 	}
 
-	context = bo_new_stream_context(NULL, out_stream, on_error);
+	context = bo_new_context(out_stream, on_output, on_error);
 
 	for(int i = optind; i < argc; i++)
 	{
-		if(bo_process_string(context, argv[i]) < 0)
+		if(bo_process(context, argv[i], true) == NULL)
+		// if(bo_process_string(context, argv[i]) < 0)
 		{
 			goto failed;
 		}

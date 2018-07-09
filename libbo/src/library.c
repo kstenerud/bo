@@ -380,45 +380,14 @@ static void buffer_use_space(bo_buffer* buffer, int bytes)
 
 
 
-// --------------------------
-// File Output Stream Wrapper
-// --------------------------
-
-typedef struct
-{
-    bo_context* context;
-    FILE* output_stream;
-    error_callback on_error;
-    void* user_data;
-} wrapped_user_data;
-
-static bool file_on_output(void* void_user_data, char* data, int length)
-{
-    wrapped_user_data* wrapped = (wrapped_user_data*)void_user_data;
-    int bytes_written = fwrite(data, 1, length, wrapped->output_stream);
-    if(bytes_written != length)
-    {
-        bo_notify_posix_error(wrapped->context, "Error writing to output stream");
-        return false;
-    }
-    return true;
-}
-
-static void file_on_error(void* void_user_data, const char* message)
-{
-    wrapped_user_data* wrapped = (wrapped_user_data*)void_user_data;
-    wrapped->on_error(wrapped->user_data, message);
-}
-
-
-
 // --------
 // Internal
 // --------
 
 static bool context_user_data_is_owned_by_us(bo_context* context)
 {
-    return context->on_output == file_on_output;
+    return false;
+    // return context->on_output == file_on_output;
 }
 
 static inline bool can_input_numbers(bo_context* context)
@@ -1015,18 +984,6 @@ void* bo_new_context(void* user_data, output_callback on_output, error_callback 
     bo_context* heap_context = (bo_context*)malloc(sizeof(context));
     *heap_context = context;
     return heap_context;
-}
-
-void* bo_new_stream_context(void* user_data, FILE* output_stream, error_callback on_error)
-{
-    LOG("New stream context");
-    wrapped_user_data* wrapped = malloc(sizeof(wrapped_user_data));
-    wrapped->output_stream = output_stream;
-    wrapped->on_error = on_error;
-    wrapped->user_data = user_data;
-    bo_context* context = bo_new_context(wrapped, file_on_output, file_on_error);
-    wrapped->context = context;
-    return context;
 }
 
 bool bo_flush_and_destroy_context(void* void_context)
