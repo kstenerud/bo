@@ -13,6 +13,21 @@ target_include_directories(libbo
         src
 )
 
+target_compile_options(libbo PRIVATE $<$<C_COMPILER_ID:GNU>:
+    -Wall
+    -Wextra
+#    -Wduplicated-cond
+#    -Wduplicated-branches
+    -Wlogical-op
+#    -Wrestrict
+#    -Wnull-dereference
+    -Wjump-misses-init
+    -Wdouble-promotion
+    -Wshadow
+    -fstrict-aliasing
+    -Wformat=2
+>)
+
 configure_file(src/library_version.h.in library_version.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 

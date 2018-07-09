@@ -422,7 +422,7 @@ static char* parse_string(bo_context* context)
                 || !is_hex_character(read_pos[4]))
                 {
                     if(!is_last_data_segment(context) &&
-                        (read_pos[1] == 0) || (read_pos[2] == 0) || (read_pos[3] == 0) || (read_pos[4] == 0))
+                        ((read_pos[1] == 0) || (read_pos[2] == 0) || (read_pos[3] == 0) || (read_pos[4] == 0)))
                     {
                         set_parse_interrupted_at(context, escape_pos);
                         return string;
@@ -663,13 +663,14 @@ char* bo_process_data(void* void_context, char* data, int data_length, bool is_l
     context->parse_position = data;
     if(context->input.data_type == TYPE_BINARY)
     {
-        bo_on_bytes(context, data, data_length);
+        bo_on_bytes(context, (uint8_t*)data, data_length);
         return context->parse_position;
     }
 
     // TODO
     data[data_length] = 0;
     bo_process(context, data, is_last_data_segment);
+    return context->parse_position;
 }
 
 char* bo_process(void* void_context, char* string, bool is_last_data_segment)

@@ -111,7 +111,7 @@ typedef struct
 } bo_context;
 
 
-void bo_on_bytes(bo_context* context, char* data, int length);
+void bo_on_bytes(bo_context* context, uint8_t* data, int length);
 void bo_on_string(bo_context* context, const char* string);
 void bo_on_number(bo_context* context, const char* string_value);
 

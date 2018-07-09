@@ -75,31 +75,6 @@ void bo_notify_error(bo_context* context, char* fmt, ...)
     context->on_error(context->user_data, buffer);
 }
 
-static void bo_notify_posix_error(bo_context* context, char* fmt, ...)
-{
-    int error_num = errno;
-    char buffer[500];
-
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-    buffer[sizeof(buffer)-1] = 0;
-    va_end(args);
-
-    int length = strlen(buffer);
-    int remaining = sizeof(buffer) - length;
-    strncpy(buffer + length, ": ", 2);
-    buffer[sizeof(buffer)-1] = 0;
-
-    length = strlen(buffer);
-    remaining = sizeof(buffer) - length;
-    strerror_r(error_num, buffer + length, remaining);
-    buffer[sizeof(buffer)-1] = 0;
-
-    mark_error_condition(context);
-    context->on_error(context->user_data, buffer);
-}
-
 
 
 // ---------------
@@ -114,7 +89,7 @@ static inline void copy_swapped(uint8_t* dst, uint8_t* src, int length)
 	}
 }
 
-typedef int (*string_printer)(uint8_t* src, char* dst, int text_width, bo_endianness endianness);
+typedef int (*string_printer)(uint8_t* src, uint8_t* dst, int text_width, bo_endianness endianness);
 
 // Force the compiler to generate handler code for unaligned accesses.
 #define DEFINE_SAFE_STRUCT(NAME, TYPE) typedef struct __attribute__((__packed__)) {TYPE contents;} NAME
@@ -134,11 +109,11 @@ DEFINE_SAFE_STRUCT(safe_decimal_8,  _Decimal64);
 DEFINE_SAFE_STRUCT(safe_decimal_16, _Decimal128);
 
 #define DEFINE_INT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t* src, char* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t* src, uint8_t* dst, int text_width) \
 { \
-	return sprintf(dst, "%0*" #FORMAT, text_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+	return sprintf((char*)dst, "%0*" #FORMAT, text_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
 } \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width, bo_endianness endianness) \
 { \
 	if(DATA_WIDTH == 1 || endianness == BO_NATIVE_INT_ENDIANNESS) \
 	{ \
@@ -166,11 +141,11 @@ DEFINE_INT_STRING_PRINTER(octal, uint, 8, lo)
 // TODO: octal-16
 
 #define DEFINE_FLOAT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t* src, char* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t* src, uint8_t* dst, int text_width) \
 { \
-	return sprintf(dst, "%.*" #FORMAT, text_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+	return sprintf((char*)dst, "%.*" #FORMAT, text_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
 } \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width, bo_endianness endianness) \
 { \
 	if(endianness == BO_NATIVE_FLOAT_ENDIANNESS) \
 	{ \
@@ -189,7 +164,7 @@ DEFINE_FLOAT_STRING_PRINTER(float, float, 8, f)
 // TODO: decimal-16
 
 #define DEFINE_BINARY_PRINTER(DATA_WIDTH) \
-static int binary_print_ ## DATA_WIDTH ## _le(uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
+static int binary_print_ ## DATA_WIDTH ## _le(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width, __attribute__ ((unused)) bo_endianness endianness) \
 { \
     if(BO_NATIVE_INT_ENDIANNESS == BO_ENDIAN_LITTLE) \
     { \
@@ -201,7 +176,7 @@ static int binary_print_ ## DATA_WIDTH ## _le(uint8_t* src, char* dst, int text_
     } \
     return DATA_WIDTH; \
 } \
-static int binary_print_ ## DATA_WIDTH ## _be(uint8_t* src, char* dst, int text_width, bo_endianness endianness) \
+static int binary_print_ ## DATA_WIDTH ## _be(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width, __attribute__ ((unused)) bo_endianness endianness) \
 { \
     if(BO_NATIVE_INT_ENDIANNESS == BO_ENDIAN_BIG) \
     { \
@@ -217,9 +192,10 @@ DEFINE_BINARY_PRINTER(2)
 DEFINE_BINARY_PRINTER(4)
 DEFINE_BINARY_PRINTER(8)
 DEFINE_BINARY_PRINTER(16)
-static int binary_print_1(uint8_t* src, char* dst, int text_width, bo_endianness endianness)
+static int binary_print_1(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width, __attribute__ ((unused)) bo_endianness endianness)
 {
     *dst = *src;
+    return 1;
 }
 
 static string_printer get_string_printer(bo_context* context)
@@ -443,7 +419,7 @@ static void clear_error_condition(bo_context* context)
 
 static void flush_output_buffer(bo_context* context)
 {
-    if(!context->on_output(context->user_data, context->output_buffer.start, buffer_get_used(&context->output_buffer)))
+    if(!context->on_output(context->user_data, (char*)context->output_buffer.start, buffer_get_used(&context->output_buffer)))
     {
         mark_error_condition(context);
     }
@@ -452,7 +428,7 @@ static void flush_output_buffer(bo_context* context)
 
 static void flush_work_buffer_binary(bo_context* context)
 {
-    if(!context->on_output(context->user_data, context->work_buffer.start, buffer_get_used(&context->work_buffer)))
+    if(!context->on_output(context->user_data, (char*)context->work_buffer.start, buffer_get_used(&context->work_buffer)))
     {
         mark_error_condition(context);
     }
@@ -499,8 +475,8 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
     {
         if(context->output.prefix != NULL && *context->output.prefix != 0)
         {
-            strcpy(out->pos, context->output.prefix);
-            out->pos += strlen(out->pos);
+            strcpy((char*)out->pos, context->output.prefix);
+            out->pos += strlen((char*)out->pos);
         }
 
         int bytes_written = string_print(src, out->pos, context->output.text_width, context->output.endianness);
@@ -513,8 +489,8 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
 
         if(src + bytes_per_entry < end && context->output.suffix != NULL)
         {
-            strcpy(out->pos, context->output.suffix);
-            out->pos += strlen(out->pos);
+            strcpy((char*)out->pos, context->output.suffix);
+            out->pos += strlen((char*)out->pos);
         }
 
         if(buffer_is_high_water(out))
@@ -664,7 +640,7 @@ static void add_float(bo_context* context, double src_value)
 // Parser Callbacks
 // ----------------
 
-void bo_on_bytes(bo_context* context, char* data, int length)
+void bo_on_bytes(bo_context* context, uint8_t* data, int length)
 {
     if(context->input.data_width != 1 && context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
     {
@@ -737,6 +713,9 @@ void bo_on_preset(bo_context* context, const char* string_value)
                     break;
                 case TYPE_OCTAL:
                     bo_on_prefix(context, "0");
+                    break;
+                default:
+                    // Nothing to do
                     break;
             }
             break;
