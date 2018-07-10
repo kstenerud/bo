@@ -513,7 +513,7 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
 
 static void add_bytes(bo_context* context, const uint8_t* ptr, int length)
 {
-    if(buffer_get_remaining(&context->work_buffer) == 0)
+    if(buffer_is_high_water(&context->work_buffer))
     {
         flush_work_buffer(context, false);
     }
@@ -527,7 +527,10 @@ static void add_bytes(bo_context* context, const uint8_t* ptr, int length)
         }
 	    memcpy(context->work_buffer.pos, ptr, copy_length);
 	    buffer_use_space(&context->work_buffer, copy_length);
-	    flush_work_buffer(context, false);
+        if(buffer_is_high_water(&context->work_buffer))
+        {
+    	    flush_work_buffer(context, false);
+        }
         if(!should_continue_parsing(context))
 	    {
 	    	return;

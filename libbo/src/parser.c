@@ -212,7 +212,7 @@ static inline bool is_at_end_of_input(bo_context* context)
 
 static inline bool is_last_data_segment(bo_context* context)
 {
-    return context->is_last_data_segment;
+    return context->data_segment_type == DATA_SEGMENT_LAST;
 }
 
 static inline void set_parse_interrupted_at(bo_context* context, uint8_t* position)
@@ -668,7 +668,7 @@ static void on_number(bo_context* context)
 // Parse API
 // ---------
 
-char* bo_process(void* void_context, char* data, int data_length, bool is_last_data_segment)
+char* bo_process(void* void_context, char* data, int data_length, bo_data_segment_type data_segment_type)
 {
     bo_context* context = (bo_context*)void_context;
     context->src_buffer.start = context->src_buffer.pos = (uint8_t*)data;
@@ -680,7 +680,7 @@ char* bo_process(void* void_context, char* data, int data_length, bool is_last_d
         return (char*)context->src_buffer.pos;
     }
 
-    context->is_last_data_segment = is_last_data_segment;
+    context->data_segment_type = data_segment_type;
     context->is_at_end_of_input = false;
     context->is_error_condition = false;
     context->parse_should_continue = true;

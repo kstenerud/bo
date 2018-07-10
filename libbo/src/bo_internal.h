@@ -104,7 +104,7 @@ typedef struct
     output_callback on_output;
     void* user_data;
 
-    bool is_last_data_segment;
+    bo_data_segment_type data_segment_type;
     bool is_at_end_of_input;
     bool is_error_condition;
     bool parse_should_continue;

@@ -46,7 +46,7 @@ void assert_conversion(const char* input, const char* expected_output)
 	};
 	char* input_copy = strdup(input);
 	void* context = bo_new_context(&test_context, on_output, on_error);
-	bool process_success = bo_process(context, input_copy, strlen(input_copy), true);
+	bool process_success = bo_process(context, input_copy, strlen(input_copy), DATA_SEGMENT_LAST);
 	bool flush_success = bo_flush_and_destroy_context(context);
 	ASSERT_TRUE(process_success);
 	ASSERT_TRUE(flush_success);
@@ -65,7 +65,7 @@ void assert_failed_conversion(int buffer_length, const char* input)
 	};
 	char* input_copy = strdup(input);
 	void* context = bo_new_context(&test_context, on_output, on_error);
-	bool process_success = bo_process(context, input_copy, strlen(input_copy), true);
+	bool process_success = bo_process(context, input_copy, strlen(input_copy), DATA_SEGMENT_LAST);
 	bool flush_success = bo_flush_and_destroy_context(context);
 	bool is_successful = process_success && flush_success;
 	ASSERT_FALSE(is_successful);

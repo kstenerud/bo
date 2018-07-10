@@ -188,8 +188,8 @@ static bool process_stream(void* context, FILE* stream)
 			is_successful = false;
 		}
 		buffer[bytes_read] = 0;
-		bool is_last = bytes_read != bytes_to_read;
-		bo_process(context, buffer, bytes_read, is_last);
+		bo_data_segment_type segment_type = feof(stream) ? DATA_SEGMENT_LAST : DATA_SEGMENT_STREAM;
+		bo_process(context, buffer, bytes_read, segment_type);
 	}
 	if(is_successful && ferror(stream))
 	{

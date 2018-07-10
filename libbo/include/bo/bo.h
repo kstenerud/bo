@@ -49,6 +49,12 @@ typedef bool (*output_callback)(void* user_data, char* data, int length);
  */
 typedef void (*error_callback)(void* user_data, const char* message);
 
+typedef enum
+{
+	DATA_SEGMENT_STREAM, // This is one data segment of many.
+	DATA_SEGMENT_LAST,   // This is the last (or only) data segment.
+} bo_data_segment_type;
+
 /**
  * Get the bo library version. Bo follows the semantic version format.
  *
@@ -73,7 +79,22 @@ void* bo_new_context(void* user_data, output_callback on_output, error_callback 
  */
 bool bo_flush_and_destroy_context(void* context);
 
-char* bo_process(void* void_context, char* data, int data_length, bool is_last_data_segment);
+/**
+ * Process a stream of data, returning output via the output_callback set in the context.
+ *
+ * If the data chunk being passed in is part of a series (e.g. coming from a file or network stream),
+ * use DATA_SEGMENT_STREAM, and then DATA_SEGMENT_LAST for the last packet to process.
+ * When the segment type is DATA_SEGMENT_STREAM, bo will defer processing commands or data that span
+ * data segments. The return value will reflect where processing stopped, so that you can copy the
+ * remaining data to the beginning of the buffer and top up the rest from your data source.
+ *
+ * @param context A context created by bo_new_context().
+ * @param data The data to process.
+ * @param data_length The length of the data.
+ * @param data_segment_type Whether this is the middle or the end of a stream of data.
+ * @return A pointer to one past the last byte processed.
+ */
+char* bo_process(void* context, char* data, int data_length, bo_data_segment_type data_segment_type);
 
 
 #ifdef __cplusplus
