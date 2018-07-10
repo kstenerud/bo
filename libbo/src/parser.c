@@ -616,11 +616,16 @@ static void on_output_type(bo_context* context)
 
         if(data_type != TYPE_BINARY)
         {
+            if(token + offset > context->src_buffer.end)
+            {
+                context->src_buffer.pos = token;
+                bo_notify_error(context, "%s: offset %d: Missing print width", token, offset);
+                return;
+            }
             if(!is_decimal_character(token[offset]))
             {
                 context->src_buffer.pos = token;
-                const char* reason = token[offset] == 0 ? "Missing print width" : "Not a valid print width";
-                bo_notify_error(context, "%s: offset %d: %s", token, offset, reason);
+                bo_notify_error(context, "%s: offset %d: Not a valid print width", token, offset);
                 return;
             }
 
