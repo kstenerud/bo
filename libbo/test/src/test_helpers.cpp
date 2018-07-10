@@ -2,13 +2,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#define bo_process_string(CONTEXT, STRING) do_process(CONTEXT, (char*)STRING)
-static bool do_process(void* context, const char* string)
-{
-	return bo_process(context, (char*)string, true) != NULL;
-}
-
-
 static bool g_has_errors = false;
 
 static void on_error(void* user_data, const char* message)
@@ -51,15 +44,15 @@ void assert_conversion(const char* input, const char* expected_output)
 	{
 		.pos = buffer,
 	};
-	input = strdup(input);
+	char* input_copy = strdup(input);
 	void* context = bo_new_context(&test_context, on_output, on_error);
-	bool process_success = bo_process_string(context, input);
+	bool process_success = bo_process(context, input_copy, strlen(input_copy), true);
 	bool flush_success = bo_flush_and_destroy_context(context);
 	ASSERT_TRUE(process_success);
 	ASSERT_TRUE(flush_success);
 	ASSERT_FALSE(has_errors());
 	ASSERT_STREQ(expected_output, buffer);
-	free((void*)input);
+	free((void*)input_copy);
 }
 
 void assert_failed_conversion(int buffer_length, const char* input)
@@ -70,12 +63,12 @@ void assert_failed_conversion(int buffer_length, const char* input)
 	{
 		.pos = buffer,
 	};
-	input = strdup(input);
+	char* input_copy = strdup(input);
 	void* context = bo_new_context(&test_context, on_output, on_error);
-	bool process_success = bo_process_string(context, input);
+	bool process_success = bo_process(context, input_copy, strlen(input_copy), true);
 	bool flush_success = bo_flush_and_destroy_context(context);
 	bool is_successful = process_success && flush_success;
 	ASSERT_FALSE(is_successful);
 	ASSERT_TRUE(has_errors());
-	free((void*)input);
+	free((void*)input_copy);
 }

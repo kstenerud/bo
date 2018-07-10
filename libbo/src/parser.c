@@ -215,14 +215,19 @@ static inline bool is_last_data_segment(bo_context* context)
     return context->is_last_data_segment;
 }
 
-static inline void set_parse_interrupted_at(bo_context* context, char* position)
+static inline void set_parse_interrupted_at(bo_context* context, uint8_t* position)
 {
-    context->parse_position = position;
+    context->src_buffer.pos = position;
     context->parse_should_continue = false;
 }
 
-static bo_data_type extract_data_type(bo_context* context, char* token, int offset)
+static bo_data_type extract_data_type(bo_context* context, uint8_t* token, int offset)
 {
+    if(token + offset >= context->src_buffer.end)
+    {
+        bo_notify_error(context, "%s: offset %d: Missing data type", token, offset);
+        return TYPE_NONE;
+    }
     bo_data_type data_type = token[offset];
     switch(data_type)
     {
@@ -235,17 +240,19 @@ static bo_data_type extract_data_type(bo_context* context, char* token, int offs
         case TYPE_DECIMAL:
         case TYPE_STRING:
             return data_type;
-        case 0:
-            bo_notify_error(context, "%s: offset %d: Missing data type", token, offset);
-            return TYPE_NONE;
         default:
             bo_notify_error(context, "%s: offset %d: %c is not a valid data type", token, offset, (char)data_type);
             return TYPE_NONE;
     }
 }
 
-static int extract_data_width(bo_context* context, char* token, int offset)
+static int extract_data_width(bo_context* context, uint8_t* token, int offset)
 {
+    if(token + offset >= context->src_buffer.end)
+    {
+        bo_notify_error(context, "%s: offset %d: Missing data width", token, offset);
+        return 0;
+    }
     switch(token[offset])
     {
         case '1':
@@ -256,7 +263,7 @@ static int extract_data_width(bo_context* context, char* token, int offset)
                 case '0': case '1': case '2': case '3': case '4': case '5':
                 case '7': case '8': case '9':
                 {
-                    unsigned int width = strtoul(token + offset, NULL, 16);
+                    unsigned int width = strtoul((char*)token + offset, NULL, 16);
                     bo_notify_error(context, "%s: offset %d: %d is not a valid data width", token, offset, width);
                     return 0;
                 }
@@ -271,29 +278,31 @@ static int extract_data_width(bo_context* context, char* token, int offset)
             return 8;
         case '0': case '3': case '5': case '6': case '7': case '9':
         {
-            unsigned int width = strtoul(token + offset, NULL, 10);
+            unsigned int width = strtoul((char*)token + offset, NULL, 10);
             bo_notify_error(context, "%s: offset %d: %d is not a valid data width", token, offset, width);
             return 0;
         }
-        case 0:
-            bo_notify_error(context, "%s: offset %d: Missing data width", token, offset);
-            return 0;
         default:
             bo_notify_error(context, "%s: offset %d: Not a valid data width", token, offset);
             return 0;
     }
 }
 
-static bo_endianness extract_endianness(bo_context* context, char* token, int offset)
+static bo_endianness extract_endianness(bo_context* context, uint8_t* token, int offset)
 {
-    char ch = token[offset];
-    switch(ch)
+    if(token + offset >= context->src_buffer.end)
+    {
+        bo_notify_error(context, "%s: offset %d: Missing endianness", token, offset);
+        return BO_ENDIAN_NONE;
+    }
+    bo_endianness endianness = (bo_endianness)token[offset];
+    switch(endianness)
     {
         case BO_ENDIAN_LITTLE:
         case BO_ENDIAN_BIG:
-            return ch;
+            return endianness;
         default:
-            bo_notify_error(context, "%s: offset %d: %c is not a valid endianness", token, offset, ch);
+            bo_notify_error(context, "%s: offset %d: %c is not a valid endianness", token, offset, (char)endianness);
             return BO_ENDIAN_NONE;
     }
 }
@@ -318,18 +327,32 @@ static bo_endianness extract_endianness(bo_context* context, char* token, int of
  */
 static void terminate_token(bo_context* context)
 {
-    char* ptr = context->parse_position;
-    for(; *ptr != 0; ptr++)
+    uint8_t* ptr = context->src_buffer.pos;
+    for(; ptr < context->src_buffer.end; ptr++)
     {
         if(is_whitespace_character(*ptr))
         {
             *ptr = 0;
-            context->parse_position = ptr;
+            context->src_buffer.pos = ptr;
             return;
         }
     }
     context->is_at_end_of_input = true;
-    context->parse_position = ptr;
+    context->src_buffer.pos = ptr; // TODO: is this right?
+}
+
+static inline uint8_t* handle_end_of_data(bo_context* context,
+                                          uint8_t* interruption_point,
+                                          const char* error_message)
+{
+    if(is_last_data_segment(context))
+    {
+        bo_notify_error(context, error_message);
+        return NULL;
+    }
+
+    set_parse_interrupted_at(context, interruption_point);
+    return interruption_point;
 }
 
 /**
@@ -342,125 +365,104 @@ static void terminate_token(bo_context* context)
  *
  * @param context The context.
  * @param string The string to parse.
- * @return A pointer to the beginning of the string, or NULL if an exception occurred.
+ * @return A pointer to the end of the string, or NULL if an exception occurred.
  */
-static char* parse_string(bo_context* context)
+static uint8_t* parse_string(bo_context* context)
 {
-    char* string = context->parse_position;
-    char* write_pos = string;
-    char* read_pos = string;
-    for(; *read_pos != '"'; read_pos++)
+    uint8_t* string = context->src_buffer.pos;
+    uint8_t* write_pos = string;
+    uint8_t* read_pos = string;
+
+    for(; read_pos < context->src_buffer.end; read_pos++)
     {
-        if(*read_pos == 0)
-        {
-            if(is_last_data_segment(context))
-            {
-                bo_notify_error(context, "Unterminated string");
-                return NULL;
-            }
-            else
-            {
-                set_parse_interrupted_at(context, read_pos);
-                return string;
-            }
-        }
-
-        if(*read_pos != '\\')
-        {
-            *write_pos++ = *read_pos;
-            continue;
-        }
-
-        char* escape_pos = read_pos;
-        read_pos++;
-
         switch(*read_pos)
         {
-            case 0:
-                if(is_last_data_segment(context))
-                {
-                    bo_notify_error(context, "Unterminated escape sequence");
-                    return NULL;
-                }
-                else
-                {
-                    set_parse_interrupted_at(context, escape_pos);
-                    return string;
-                }
-            case 'r': *write_pos++ = '\r'; break;
-            case 'n': *write_pos++ = '\n'; break;
-            case 't': *write_pos++ = '\t'; break;
-            case '\\': *write_pos++ = '\\'; break;
-            case '\"': *write_pos++ = '\"'; break;
-            case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7':
-            case '8': case '9': case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-            case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+            case '"':
+                *write_pos = 0;
+                context->src_buffer.pos = read_pos;
+                return write_pos;
+            case '\\':
             {
-                if(!is_hex_character(read_pos[1]))
+                uint8_t* escape_pos = read_pos;
+                int remaining_bytes = context->src_buffer.end - read_pos;
+                if(remaining_bytes < 1)
                 {
-                    if(is_last_data_segment(context) && read_pos[1] == 0)
+                    return handle_end_of_data(context, escape_pos, "Unterminated escape sequence");
+                }
+
+                read_pos++;
+                switch(*read_pos)
+                {
+                    case 'r': *write_pos++ = '\r'; break;
+                    case 'n': *write_pos++ = '\n'; break;
+                    case 't': *write_pos++ = '\t'; break;
+                    case '\\': *write_pos++ = '\\'; break;
+                    case '\"': *write_pos++ = '\"'; break;
+                    case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7':
+                    case '8': case '9': case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+                    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
                     {
-                        set_parse_interrupted_at(context, escape_pos);
-                        return string;
+                        if(remaining_bytes < 2)
+                        {
+                            return handle_end_of_data(context, escape_pos, "Unterminated hex escape sequence");
+                        }
+                        if(!is_hex_character(read_pos[1]))
+                        {
+                            bo_notify_error(context, "Invalid hex escape sequence");
+                            return NULL;
+                        }
+                        uint8_t number_buffer[3] = {read_pos[0], read_pos[1], 0};
+                        read_pos += 1;
+                        *write_pos++ = (uint8_t)strtoul((char*)number_buffer, NULL, 16);
+                        break;
                     }
-                    else
+                    case 'u':
                     {
-                        bo_notify_error(context, "Invalid hex sequence");
+                        if(remaining_bytes < 5)
+                        {
+                            return handle_end_of_data(context, escape_pos, "Unterminated unicode escape sequence");
+                        }
+                        if(!is_hex_character(read_pos[1])
+                        || !is_hex_character(read_pos[2])
+                        || !is_hex_character(read_pos[3])
+                        || !is_hex_character(read_pos[4]))
+                        {
+                            bo_notify_error(context, "Invalid unicode escape sequence");
+                            return NULL;
+                        }
+                        uint8_t number_buffer[5] = {read_pos[1], read_pos[2], read_pos[3], read_pos[4], 0};
+                        read_pos += 4;
+                        unsigned int codepoint = strtoul((char*)number_buffer, NULL, 16);
+                        if(codepoint <= 0x7f)
+                        {
+                            *write_pos++ = (uint8_t)codepoint;
+                        }
+                        else if(codepoint <= 0x7ff)
+                        {
+                            *write_pos++ = (uint8_t)((codepoint >> 6) | 0xc0);
+                            *write_pos++ = (uint8_t)((codepoint & 0x3f) | 0x80);
+                        }
+                        else
+                        {
+                            *write_pos++ = (uint8_t)((codepoint >> 12) | 0xe0);
+                            *write_pos++ = (uint8_t)(((codepoint >> 6) & 0x3f) | 0x80);
+                            *write_pos++ = (uint8_t)((codepoint & 0x3f) | 0x80);
+                        }
+                        break;
+                    }
+                    default:
+                        bo_notify_error(context, "Invalid escape sequence");
                         return NULL;
-                    }
-                }
-                char number_buffer[3] = {read_pos[0], read_pos[1], 0};
-                read_pos += 1;
-                *write_pos++ = (uint8_t)strtoul(number_buffer, NULL, 16);
-                break;
-            }
-            case 'u':
-            {
-                if(!is_hex_character(read_pos[1])
-                || !is_hex_character(read_pos[2])
-                || !is_hex_character(read_pos[3])
-                || !is_hex_character(read_pos[4]))
-                {
-                    if(!is_last_data_segment(context) &&
-                        ((read_pos[1] == 0) || (read_pos[2] == 0) || (read_pos[3] == 0) || (read_pos[4] == 0)))
-                    {
-                        set_parse_interrupted_at(context, escape_pos);
-                        return string;
-                    }
-                    else
-                    {
-                        bo_notify_error(context, "Invalid unicode codepoint");
-                        return NULL;
-                    }
-                }
-                char number_buffer[5] = {read_pos[1], read_pos[2], read_pos[3], read_pos[4], 0};
-                read_pos += 4;
-                unsigned int codepoint = strtoul(number_buffer, NULL, 16);
-                if(codepoint <= 0x7f)
-                {
-                    *write_pos++ = (char)codepoint;
-                }
-                else if(codepoint <= 0x7ff)
-                {
-                    *write_pos++ = (char)((codepoint >> 6) | 0xc0);
-                    *write_pos++ = (char)((codepoint & 0x3f) | 0x80);
-                }
-                else
-                {
-                    *write_pos++ = (char)((codepoint >> 12) | 0xe0);
-                    *write_pos++ = (char)(((codepoint >> 6) & 0x3f) | 0x80);
-                    *write_pos++ = (char)((codepoint & 0x3f) | 0x80);
                 }
                 break;
             }
             default:
-                bo_notify_error(context, "Invalid escape sequence");
-                return NULL;
+                *write_pos++ = *read_pos;
+                break;
         }
     }
-    *write_pos = 0;
-    context->parse_position = read_pos;
-    return string;
+
+    return handle_end_of_data(context, read_pos, "Unterminated string");
 }
 
 
@@ -471,26 +473,34 @@ static char* parse_string(bo_context* context)
 
 static void on_unknown_token(bo_context* context)
 {
-    char* token = context->parse_position;
+    uint8_t* token = context->src_buffer.pos;
     terminate_token(context);
+    if(is_at_end_of_input(context))
+    {
+        // TODO: Don't clobber data!
+        *(context->src_buffer.end - 1) = 0;
+    }
     bo_notify_error(context, "%s: Unknown token", token);
 }
 
 static void on_string(bo_context* context)
 {
-    context->parse_position++;
-    char* string = parse_string(context);
-    if(!should_continue_parsing(context))
+    context->src_buffer.pos++;
+    uint8_t* string_start = context->src_buffer.pos;
+    uint8_t* string_end = parse_string(context);
+    if(is_error_condition(context))
     {
         return;
     }
-
-    bo_on_string(context, string);
+    if(string_end > string_start)
+    {
+        bo_on_string(context, string_start, string_end);
+    }
 }
 
-static char* prefix_suffix_process_common(bo_context* context)
+static uint8_t* prefix_suffix_process_common(bo_context* context)
 {
-    char* token = context->parse_position;
+    uint8_t* token = context->src_buffer.pos;
     if(token[1] != '"')
     {
         terminate_token(context);
@@ -498,18 +508,19 @@ static char* prefix_suffix_process_common(bo_context* context)
         return NULL;
     }
 
-    context->parse_position += 2;
-    char* string = parse_string(context);
+    context->src_buffer.pos += 2;
+    uint8_t* string = context->src_buffer.pos;
+    parse_string(context);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
     }
     return string;
 }
 
 static void on_prefix(bo_context* context)
 {
-    char* string = prefix_suffix_process_common(context);
+    uint8_t* string = prefix_suffix_process_common(context);
     if(!should_continue_parsing(context))
     {
         return;
@@ -519,7 +530,7 @@ static void on_prefix(bo_context* context)
 
 static void on_suffix(bo_context* context)
 {
-    char* string = prefix_suffix_process_common(context);
+    uint8_t* string = prefix_suffix_process_common(context);
     if(!should_continue_parsing(context))
     {
         return;
@@ -529,14 +540,14 @@ static void on_suffix(bo_context* context)
 
 static void on_input_type(bo_context* context)
 {
-    char* token = context->parse_position;
+    uint8_t* token = context->src_buffer.pos;
     terminate_token(context);
     int offset = 1;
 
     bo_data_type data_type = extract_data_type(context, token, offset);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
         return;
     }
     offset += 1;
@@ -544,7 +555,7 @@ static void on_input_type(bo_context* context)
     int data_width = extract_data_width(context, token, offset);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
         return;
     }
     offset += data_width > 8 ? 2 : 1;
@@ -555,7 +566,7 @@ static void on_input_type(bo_context* context)
         endianness = extract_endianness(context, token, offset);
         if(!should_continue_parsing(context))
         {
-            context->parse_position = token;
+            context->src_buffer.pos = token;
             return;
         }
     }
@@ -563,21 +574,21 @@ static void on_input_type(bo_context* context)
     bo_on_input_type(context, data_type, data_width, endianness);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
         return;
     }
 }
 
 static void on_output_type(bo_context* context)
 {
-    char* token = context->parse_position;
+    uint8_t* token = context->src_buffer.pos;
     terminate_token(context);
     int offset = 1;
 
     bo_data_type data_type = extract_data_type(context, token, offset);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
         return;
     }
     offset += 1;
@@ -585,7 +596,7 @@ static void on_output_type(bo_context* context)
     int data_width = extract_data_width(context, token, offset);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
         return;
     }
     offset += data_width > 8 ? 2 : 1;
@@ -598,7 +609,7 @@ static void on_output_type(bo_context* context)
         endianness = extract_endianness(context, token, offset);
         if(!should_continue_parsing(context))
         {
-            context->parse_position = token;
+            context->src_buffer.pos = token;
             return;
         }
         offset += 1;
@@ -607,46 +618,46 @@ static void on_output_type(bo_context* context)
         {
             if(!is_decimal_character(token[offset]))
             {
-                context->parse_position = token;
-                char* reason = token[offset] == 0 ? "Missing print width" : "Not a valid print width";
+                context->src_buffer.pos = token;
+                const char* reason = token[offset] == 0 ? "Missing print width" : "Not a valid print width";
                 bo_notify_error(context, "%s: offset %d: %s", token, offset, reason);
                 return;
             }
 
-            print_width = strtoul(token + offset, NULL, 10);
+            print_width = strtoul((char*)token + offset, NULL, 10);
         }
     }
 
     bo_on_output_type(context, data_type, data_width, endianness, print_width);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
         return;
     }
 }
 
 static void on_preset(bo_context* context)
 {
-    char* token = context->parse_position;
+    uint8_t* token = context->src_buffer.pos;
     terminate_token(context);
 
     bo_on_preset(context, token + 1);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
         return;
     }
 }
 
 static void on_number(bo_context* context)
 {
-    char* token = context->parse_position;
+    uint8_t* token = context->src_buffer.pos;
     terminate_token(context);
 
     bo_on_number(context, token);
     if(!should_continue_parsing(context))
     {
-        context->parse_position = token;
+        context->src_buffer.pos = token;
         return;
     }
 }
@@ -657,38 +668,28 @@ static void on_number(bo_context* context)
 // Parse API
 // ---------
 
-char* bo_process_data(void* void_context, char* data, int data_length, bool is_last_data_segment)
+char* bo_process(void* void_context, char* data, int data_length, bool is_last_data_segment)
 {
     bo_context* context = (bo_context*)void_context;
-    context->parse_position = data;
+    context->src_buffer.start = context->src_buffer.pos = (uint8_t*)data;
+    context->src_buffer.end = context->src_buffer.start + data_length;
+
     if(context->input.data_type == TYPE_BINARY)
     {
         bo_on_bytes(context, (uint8_t*)data, data_length);
-        return context->parse_position;
+        return (char*)context->src_buffer.pos;
     }
 
-    // TODO
-    data[data_length] = 0;
-    bo_process(context, data, is_last_data_segment);
-    return context->parse_position;
-}
-
-char* bo_process(void* void_context, char* string, bool is_last_data_segment)
-{
-    bo_context* context = (bo_context*)void_context;
-    context->parse_position = string;
     context->is_last_data_segment = is_last_data_segment;
     context->is_at_end_of_input = false;
     context->is_error_condition = false;
     context->parse_should_continue = true;
 
-    for(; !is_at_end_of_input(context) && should_continue_parsing(context) && *context->parse_position != 0;
-        context->parse_position++)
+    for(; !is_at_end_of_input(context) && should_continue_parsing(context) && context->src_buffer.pos < context->src_buffer.end;
+        context->src_buffer.pos++)
     {
-        switch(*context->parse_position)
+        switch(*context->src_buffer.pos)
         {
-            case 0:
-                break;
             case '\n':
                 // TODO: Line count
                 break;
@@ -713,7 +714,7 @@ char* bo_process(void* void_context, char* string, bool is_last_data_segment)
                 on_preset(context);
                 break;
             default:
-                if(is_numeric_character(*context->parse_position))
+                if(is_numeric_character(*context->src_buffer.pos))
                 {
                     on_number(context);
                     break;
@@ -728,5 +729,5 @@ char* bo_process(void* void_context, char* string, bool is_last_data_segment)
     {
         return NULL;
     }
-    return context->parse_position;
+    return (char*)context->src_buffer.pos;
 }

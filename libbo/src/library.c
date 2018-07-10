@@ -61,7 +61,7 @@ static void mark_error_condition(bo_context* context)
     context->parse_should_continue = false;
 }
 
-void bo_notify_error(bo_context* context, char* fmt, ...)
+void bo_notify_error(bo_context* context, const char* fmt, ...)
 {
     char buffer[500];
 
@@ -502,6 +502,7 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
             }
         }
     }
+    buffer_clear(&context->work_buffer);
 }
 
 
@@ -510,28 +511,30 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
 // Binary Data Adders
 // ------------------
 
-static void add_bytes(bo_context* context, uint8_t* ptr, int length)
+static void add_bytes(bo_context* context, const uint8_t* ptr, int length)
 {
-    int remaining = buffer_get_remaining(&context->work_buffer);
-    if(length > remaining)
+    if(buffer_get_remaining(&context->work_buffer) == 0)
     {
-	    memcpy(context->work_buffer.pos, ptr, remaining);
-	    buffer_use_space(&context->work_buffer, remaining);
+        flush_work_buffer(context, false);
+    }
+
+    do
+    {
+        int copy_length = buffer_get_remaining(&context->work_buffer);
+        if(copy_length > length)
+        {
+            copy_length = length;
+        }
+	    memcpy(context->work_buffer.pos, ptr, copy_length);
+	    buffer_use_space(&context->work_buffer, copy_length);
 	    flush_work_buffer(context, false);
         if(!should_continue_parsing(context))
 	    {
 	    	return;
 	    }
-	    add_bytes(context, ptr + remaining, length - remaining);
-        return;
-    }
-
-    memcpy(context->work_buffer.pos, ptr, length);
-    buffer_use_space(&context->work_buffer, length);
-    if(buffer_is_high_water(&context->work_buffer))
-    {
-        flush_work_buffer(context, false);
-    }
+        length -= copy_length;
+        ptr += copy_length;
+    } while(length > 0);
 }
 
 static void add_int(bo_context* context, uint64_t src_value)
@@ -642,6 +645,7 @@ static void add_float(bo_context* context, double src_value)
 
 void bo_on_bytes(bo_context* context, uint8_t* data, int length)
 {
+    LOG("On bytes: %d", length);
     if(context->input.data_width != 1 && context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
     {
         swap_buffer_endianness(data, length, context->input.data_width);
@@ -649,13 +653,13 @@ void bo_on_bytes(bo_context* context, uint8_t* data, int length)
     add_bytes(context, data, length);    
 }
 
-void bo_on_string(bo_context* context, const char* string)
+void bo_on_string(bo_context* context, const uint8_t* string_start, const uint8_t* string_end)
 {
-    LOG("On string [%s]", string);
-    add_bytes(context, (uint8_t*)string, strlen(string));
+    LOG("On string [%s]", string_start);
+    add_bytes(context, string_start, string_end - string_start);
 }
 
-void bo_on_number(bo_context* context, const char* string_value)
+void bo_on_number(bo_context* context, const uint8_t* string_value)
 {
     LOG("On number [%s]", string_value);
     if(!can_input_numbers(context))
@@ -667,22 +671,22 @@ void bo_on_number(bo_context* context, const char* string_value)
     switch(context->input.data_type)
     {
         case TYPE_FLOAT:
-            add_float(context, strtod(string_value, NULL));
+            add_float(context, strtod((char*)string_value, NULL));
             return;
         case TYPE_DECIMAL:
             bo_notify_error(context, "TODO: Unimplemented decimal type: %s", string_value);
             return;
         case TYPE_INT:
-            add_int(context, strtoul(string_value, NULL, 10));
+            add_int(context, strtoul((char*)string_value, NULL, 10));
             return;
         case TYPE_HEX:
-            add_int(context, strtoul(string_value, NULL, 16));
+            add_int(context, strtoul((char*)string_value, NULL, 16));
             return;
         case TYPE_OCTAL:
-            add_int(context, strtoul(string_value, NULL, 8));
+            add_int(context, strtoul((char*)string_value, NULL, 8));
             return;
         case TYPE_BOOLEAN:
-            add_int(context, strtoul(string_value, NULL, 2));
+            add_int(context, strtoul((char*)string_value, NULL, 2));
             return;
         default:
             bo_notify_error(context, "Unknown type %d for value [%s]", context->input.data_type, string_value);
@@ -690,7 +694,7 @@ void bo_on_number(bo_context* context, const char* string_value)
     }
 }
 
-void bo_on_preset(bo_context* context, const char* string_value)
+void bo_on_preset(bo_context* context, const uint8_t* string_value)
 {
     LOG("Set preset [%s]", string_value);
     if(*string_value == 0)
@@ -702,17 +706,17 @@ void bo_on_preset(bo_context* context, const char* string_value)
     switch(*string_value)
     {
         case 's':
-            bo_on_suffix(context, " ");
+            bo_on_suffix(context, (uint8_t*)" ");
             break;
         case 'c':
-            bo_on_suffix(context, ", ");
+            bo_on_suffix(context, (uint8_t*)", ");
             switch(context->output.data_type)
             {
                 case TYPE_HEX:
-                    bo_on_prefix(context, "0x");
+                    bo_on_prefix(context, (uint8_t*)"0x");
                     break;
                 case TYPE_OCTAL:
-                    bo_on_prefix(context, "0");
+                    bo_on_prefix(context, (uint8_t*)"0");
                     break;
                 default:
                     // Nothing to do
@@ -725,24 +729,24 @@ void bo_on_preset(bo_context* context, const char* string_value)
     }
 }
 
-void bo_on_prefix(bo_context* context, const char* prefix)
+void bo_on_prefix(bo_context* context, const uint8_t* prefix)
 {
     LOG("Set prefix [%s]", prefix);
     if(context->output.prefix != NULL)
     {
         free((void*)context->output.prefix);
     }
-    context->output.prefix = strdup(prefix);
+    context->output.prefix = strdup((char*)prefix);
 }
 
-void bo_on_suffix(bo_context* context, const char* suffix)
+void bo_on_suffix(bo_context* context, const uint8_t* suffix)
 {
     LOG("Set suffix [%s]", suffix);
     if(context->output.suffix != NULL)
     {
         free((void*)context->output.suffix);
     }
-    context->output.suffix = strdup(suffix);
+    context->output.suffix = strdup((char*)suffix);
 }
 
 void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness)

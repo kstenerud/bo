@@ -73,29 +73,7 @@ void* bo_new_context(void* user_data, output_callback on_output, error_callback 
  */
 bool bo_flush_and_destroy_context(void* context);
 
-/**
- * Process a BO command sequence from a string.
- *
- * @param input The sequence to parse.
- * @param context The context object.
- * @return True if successful.
- */
-// bool bo_process_data(void* context, const char* data, int length);
-bool bo_process_string(void* void_context, const char* string);
-
-/**
- * Process a BO command sequence from a stream.
- *
- * @param src The stream to read from.
- * @param context The context object.
- * @return True if successful.
- */
-bool bo_process_stream(void* context, FILE* src);
-
-
-// TODO: Temporary
-char* bo_process(void* void_context, char* string, bool is_last_data_segment);
-char* bo_process_data(void* void_context, char* data, int data_length, bool is_last_data_segment);
+char* bo_process(void* void_context, char* data, int data_length, bool is_last_data_segment);
 
 
 #ifdef __cplusplus

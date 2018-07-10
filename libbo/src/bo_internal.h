@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 
-// #define BO_ENABLE_LOGGING 1
+#define BO_ENABLE_LOGGING 1
 
 
 #include <stdbool.h>
@@ -82,6 +82,7 @@ typedef struct
 
 typedef struct
 {
+    bo_buffer src_buffer;
     bo_buffer work_buffer;
     bo_buffer output_buffer;
     struct
@@ -103,7 +104,6 @@ typedef struct
     output_callback on_output;
     void* user_data;
 
-    char* parse_position;
     bool is_last_data_segment;
     bool is_at_end_of_input;
     bool is_error_condition;
@@ -112,16 +112,16 @@ typedef struct
 
 
 void bo_on_bytes(bo_context* context, uint8_t* data, int length);
-void bo_on_string(bo_context* context, const char* string);
-void bo_on_number(bo_context* context, const char* string_value);
+void bo_on_string(bo_context* context, const uint8_t* string_start, const uint8_t* string_end);
+void bo_on_number(bo_context* context, const uint8_t* string_value);
 
-void bo_on_preset(bo_context* context, const char* string_value);
-void bo_on_prefix(bo_context* context, const char* prefix);
-void bo_on_suffix(bo_context* context, const char* suffix);
+void bo_on_preset(bo_context* context, const uint8_t* string_value);
+void bo_on_prefix(bo_context* context, const uint8_t* prefix);
+void bo_on_suffix(bo_context* context, const uint8_t* suffix);
 void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness);
 void bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width);
 
-void bo_notify_error(bo_context* context, char* fmt, ...);
+void bo_notify_error(bo_context* context, const char* fmt, ...);
 
 
 static inline bool should_continue_parsing(bo_context* context)

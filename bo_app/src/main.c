@@ -189,7 +189,7 @@ static bool process_stream(void* context, FILE* stream)
 		}
 		buffer[bytes_read] = 0;
 		bool is_last = bytes_read != bytes_to_read;
-		bo_process_data(context, buffer, bytes_read, is_last);
+		bo_process(context, buffer, bytes_read, is_last);
 	}
 	if(is_successful && ferror(stream))
 	{
@@ -245,7 +245,7 @@ int main(int argc, char* argv[])
 
 	for(int i = optind; i < argc; i++)
 	{
-		if(bo_process(context, argv[i], true) == NULL)
+		if(bo_process(context, argv[i], strlen(argv[i]), true) == NULL)
 		{
 			goto failed;
 		}
