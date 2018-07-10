@@ -221,6 +221,11 @@ static inline void set_parse_interrupted_at(bo_context* context, uint8_t* positi
     context->parse_should_continue = false;
 }
 
+static inline void null_terminate_string(uint8_t* ptr)
+{
+    *ptr = 0;
+}
+
 static bo_data_type extract_data_type(bo_context* context, uint8_t* token, int offset)
 {
     if(token + offset >= context->src_buffer.end)
@@ -332,13 +337,13 @@ static void terminate_token(bo_context* context)
     {
         if(is_whitespace_character(*ptr))
         {
-            *ptr = 0;
+            null_terminate_string(ptr);
             context->src_buffer.pos = ptr;
             return;
         }
     }
     context->is_at_end_of_input = true;
-    context->src_buffer.pos = ptr; // TODO: is this right?
+    context->src_buffer.pos = ptr;
 }
 
 static inline uint8_t* handle_end_of_data(bo_context* context,
@@ -378,7 +383,7 @@ static uint8_t* parse_string(bo_context* context)
         switch(*read_pos)
         {
             case '"':
-                *write_pos = 0;
+                null_terminate_string(write_pos);
                 context->src_buffer.pos = read_pos;
                 return write_pos;
             case '\\':
@@ -475,12 +480,17 @@ static void on_unknown_token(bo_context* context)
 {
     uint8_t* token = context->src_buffer.pos;
     terminate_token(context);
-    if(is_at_end_of_input(context))
+    if(!is_at_end_of_input(context))
     {
-        // TODO: Don't clobber data!
-        *(context->src_buffer.end - 1) = 0;
+        bo_notify_error(context, "%s: Unknown token", token);
     }
-    bo_notify_error(context, "%s: Unknown token", token);
+
+    int length = context->src_buffer.end - token;
+    uint8_t* token_copy = malloc(length + 1);
+    memcpy(token_copy, token, length);
+    null_terminate_string(token_copy + length);
+    bo_notify_error(context, "%s: Unknown token", token_copy);
+    free(token_copy);
 }
 
 static void on_string(bo_context* context)
@@ -583,6 +593,7 @@ static void on_output_type(bo_context* context)
 {
     uint8_t* token = context->src_buffer.pos;
     terminate_token(context);
+    int token_length = context->src_buffer.pos - token;
     int offset = 1;
 
     bo_data_type data_type = extract_data_type(context, token, offset);
@@ -602,9 +613,9 @@ static void on_output_type(bo_context* context)
     offset += data_width > 8 ? 2 : 1;
 
     bo_endianness endianness = BO_ENDIAN_NONE;
-    unsigned int print_width = 0;
+    unsigned int print_width = 1;
 
-    if(data_width > 1 || token[offset] != 0)
+    if(data_width > 1 || token_length > offset)
     {
         endianness = extract_endianness(context, token, offset);
         if(!should_continue_parsing(context))
@@ -616,7 +627,7 @@ static void on_output_type(bo_context* context)
 
         if(data_type != TYPE_BINARY)
         {
-            if(token + offset > context->src_buffer.end)
+            if(token + offset >= context->src_buffer.end)
             {
                 context->src_buffer.pos = token;
                 bo_notify_error(context, "%s: offset %d: Missing print width", token, offset);
@@ -681,8 +692,8 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
 
     if(context->input.data_type == TYPE_BINARY)
     {
-        bo_on_bytes(context, (uint8_t*)data, data_length);
-        return (char*)context->src_buffer.pos;
+        bo_on_bytes(context, context->src_buffer.start, data_length);
+        return (char*)context->src_buffer.end;
     }
 
     context->data_segment_type = data_segment_type;
