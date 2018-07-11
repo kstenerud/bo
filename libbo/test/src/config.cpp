@@ -15,7 +15,9 @@ TEST(BO_Config, input_config)
     assert_failed_conversion(1000, "iv4l");
     assert_failed_conversion(1000, "if10l");
     assert_failed_conversion(1000, "if4h");
-    // assert_failed_conversion(1000, "if1l");
+    assert_failed_conversion(1000, "if1l");
+    assert_failed_conversion(1000, "id1l");
+    assert_failed_conversion(1000, "id2l");
 }
 
 TEST(BO_Config, output_config)

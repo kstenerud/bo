@@ -185,6 +185,42 @@ static const uint8_t g_character_flags[256] =
 // Utility
 // -------
 
+static const char* g_data_type_name[] =
+{
+    "none",
+    "binary",
+    "int",
+    "hex",
+    "octal",
+    "boolean",
+    "float",
+    "decimal",
+    "string",
+};
+
+static int g_min_data_widths[] =
+{
+    0,
+    1, // Binary
+    1, // Int
+    1, // Hex
+    1, // Octal
+    1, // Boolean
+    2, // Float
+    4, // Decimal
+    1, // String
+};
+
+static bool verify_data_width(bo_context* context, bo_data_type data_type, int width)
+{
+    if(width < g_min_data_widths[data_type])
+    {
+        bo_notify_error(context, "Width %d cannot be used with data type %s", width, g_data_type_name[data_type]);
+        return false;
+    }
+    return true;
+}
+
 static inline bool is_decimal_character(int ch)
 {
     return g_character_flags[ch] & CHARACTER_FLAG_BASE_10;
@@ -588,6 +624,11 @@ static void on_input_type(bo_context* context)
         }
     }
 
+    if(!verify_data_width(context, data_type, data_width))
+    {
+        return;
+    }
+
     bo_on_input_type(context, data_type, data_width, endianness);
     if(!should_continue_parsing(context))
     {
@@ -649,6 +690,11 @@ static void on_output_type(bo_context* context)
 
             print_width = strtoul((char*)token + offset, NULL, 10);
         }
+    }
+
+    if(!verify_data_width(context, data_type, data_width))
+    {
+        return;
     }
 
     bo_on_output_type(context, data_type, data_width, endianness, print_width);

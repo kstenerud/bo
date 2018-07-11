@@ -413,6 +413,7 @@ static void clear_error_condition(bo_context* context)
 }
 
 
+
 // ---------------
 // Buffer Flushing
 // ---------------
@@ -754,7 +755,7 @@ void bo_on_suffix(bo_context* context, const uint8_t* suffix)
 
 void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness)
 {
-    LOG("Set input type %c, width %d, endianness %c", data_type, data_width, endianness);
+    LOG("Set input type %d, width %d, endianness %d", data_type, data_width, endianness);
     context->input.data_type = data_type;
     context->input.data_width = data_width;
     context->input.endianness = endianness;
@@ -762,7 +763,7 @@ void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_widt
 
 void bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width)
 {
-    LOG("Set input type %c, width %d, endianness %c, print width %d", data_type, data_width, endianness, print_width);
+    LOG("Set input type %d, width %d, endianness %d, print width %d", data_type, data_width, endianness, print_width);
     context->output.data_type = data_type;
     context->output.data_width = data_width;
     context->output.endianness = endianness;
