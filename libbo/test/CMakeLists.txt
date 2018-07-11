@@ -29,6 +29,7 @@ add_executable(libbo_test
                    src/errors.cpp
                    src/input.cpp
                    src/config.cpp
+                   src/span.cpp
                )
 
 target_compile_features(libbo_test PRIVATE cxx_auto_type)

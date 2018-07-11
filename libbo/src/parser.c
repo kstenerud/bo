@@ -754,8 +754,7 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
     context->is_error_condition = false;
     context->parse_should_continue = true;
 
-    for(; !is_at_end_of_input(context) && should_continue_parsing(context) && context->src_buffer.pos < context->src_buffer.end;
-        context->src_buffer.pos++)
+    for(;context->src_buffer.pos < context->src_buffer.end; context->src_buffer.pos++)
     {
         switch(*context->src_buffer.pos)
         {
@@ -790,6 +789,10 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
                 }
                 on_unknown_token(context);
                 break;
+        }
+        if(!should_continue_parsing(context) || is_at_end_of_input(context))
+        {
+            break;
         }
     }
 
