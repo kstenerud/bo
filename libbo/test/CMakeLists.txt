@@ -28,6 +28,7 @@ add_executable(libbo_test
                    src/output.cpp
                    src/errors.cpp
                    src/input.cpp
+                   src/config.cpp
                )
 
 target_compile_features(libbo_test PRIVATE cxx_auto_type)
