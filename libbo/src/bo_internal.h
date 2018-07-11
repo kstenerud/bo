@@ -45,22 +45,22 @@ extern "C" {
 
 typedef enum
 {
-    TYPE_NONE    = 0,
-    TYPE_BINARY  = 'B',
-    TYPE_INT     = 'i',
-    TYPE_HEX     = 'h',
-    TYPE_OCTAL   = 'o',
-    TYPE_BOOLEAN = 'b',
-    TYPE_FLOAT   = 'f',
-    TYPE_DECIMAL = 'd',
-    TYPE_STRING  = 's',
+    TYPE_NONE = 0,
+    TYPE_BINARY,
+    TYPE_INT,
+    TYPE_HEX,
+    TYPE_OCTAL,
+    TYPE_BOOLEAN,
+    TYPE_FLOAT,
+    TYPE_DECIMAL,
+    TYPE_STRING,
 } bo_data_type;
 
 typedef enum
 {
     BO_ENDIAN_NONE = 0,
-    BO_ENDIAN_LITTLE = 'l',
-    BO_ENDIAN_BIG = 'b',
+    BO_ENDIAN_LITTLE,
+    BO_ENDIAN_BIG,
 } bo_endianness;
 
 typedef enum

@@ -233,20 +233,26 @@ static bo_data_type extract_data_type(bo_context* context, uint8_t* token, int o
         bo_notify_error(context, "%s: offset %d: Missing data type", token, offset);
         return TYPE_NONE;
     }
-    bo_data_type data_type = token[offset];
-    switch(data_type)
+    switch(token[offset])
     {
-        case TYPE_BINARY:
-        case TYPE_INT:
-        case TYPE_HEX:
-        case TYPE_OCTAL:
-        case TYPE_BOOLEAN:
-        case TYPE_FLOAT:
-        case TYPE_DECIMAL:
-        case TYPE_STRING:
-            return data_type;
+        case 'B':
+            return TYPE_BINARY;
+        case 'i':
+            return TYPE_INT;
+        case 'h':
+            return TYPE_HEX;
+        case 'o':
+            return TYPE_OCTAL;
+        case 'b':
+            return TYPE_BOOLEAN;
+        case 'f':
+            return TYPE_FLOAT;
+        case 'd':
+            return TYPE_DECIMAL;
+        case 's':
+            return TYPE_STRING;
         default:
-            bo_notify_error(context, "%s: offset %d: %c is not a valid data type", token, offset, (char)data_type);
+            bo_notify_error(context, "%s: offset %d: %c is not a valid data type", token, offset, token[offset]);
             return TYPE_NONE;
     }
 }
@@ -300,14 +306,15 @@ static bo_endianness extract_endianness(bo_context* context, uint8_t* token, int
         bo_notify_error(context, "%s: offset %d: Missing endianness", token, offset);
         return BO_ENDIAN_NONE;
     }
-    bo_endianness endianness = (bo_endianness)token[offset];
-    switch(endianness)
+
+    switch(token[offset])
     {
-        case BO_ENDIAN_LITTLE:
-        case BO_ENDIAN_BIG:
-            return endianness;
+        case 'b':
+            return BO_ENDIAN_BIG;
+        case 'l':
+            return BO_ENDIAN_LITTLE;
         default:
-            bo_notify_error(context, "%s: offset %d: %c is not a valid endianness", token, offset, (char)endianness);
+            bo_notify_error(context, "%s: offset %d: %c is not a valid endianness", token, offset, token[offset]);
             return BO_ENDIAN_NONE;
     }
 }
