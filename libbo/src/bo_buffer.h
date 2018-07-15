@@ -27,6 +27,12 @@ extern "C" {
 #endif
 
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+
 typedef struct
 {
     uint8_t* start;

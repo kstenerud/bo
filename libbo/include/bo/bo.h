@@ -26,10 +26,9 @@
 extern "C" {
 #endif
 
-#include <stdlib.h>
-#include <stdint.h>
+
 #include <stdbool.h>
-#include <stdio.h>
+
 
 /**
  * Callback to notify of new output data.
