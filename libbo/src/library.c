@@ -58,7 +58,7 @@
 static void mark_error_condition(bo_context* context)
 {
     context->is_error_condition = true;
-    context->parse_should_continue = false;
+    stop_parsing(context);
 }
 
 void bo_notify_error(bo_context* context, const char* fmt, ...)
@@ -298,69 +298,6 @@ static string_printer get_string_printer(bo_context* context)
 
 
 
-// -------
-// Buffers
-// -------
-
-bo_buffer bo_new_buffer(int size, int overhead)
-{
-    uint8_t* memory = malloc(size + overhead);
-    bo_buffer buffer =
-    {
-        .start = memory,
-        .pos = memory,
-        .end = memory + size + overhead,
-        .high_water = memory + size,
-    };
-    return buffer;
-}
-
-void bo_free_buffer(bo_buffer* buffer)
-{
-    if(buffer->start != NULL)
-    {
-        free(buffer->start);
-        buffer->start = buffer->pos = buffer->end = NULL;
-    }
-}
-
-static bool buffer_is_high_water(bo_buffer* buffer)
-{
-    return buffer->pos >= buffer->high_water;
-}
-
-static bool buffer_is_initialized(bo_buffer* buffer)
-{
-    return buffer->start != NULL;
-}
-
-static bool buffer_is_empty(bo_buffer* buffer)
-{
-    return buffer->pos == buffer->start;
-}
-
-static int buffer_get_used(bo_buffer* buffer)
-{
-    return buffer->pos - buffer->start;
-}
-
-static int buffer_get_remaining(bo_buffer* buffer)
-{
-    return buffer->end - buffer->pos;
-}
-
-static void buffer_clear(bo_buffer* buffer)
-{
-    buffer->pos = buffer->start;
-}
-
-static void buffer_use_space(bo_buffer* buffer, int bytes)
-{
-    buffer->pos += bytes;
-}
-
-
-
 // --------
 // Internal
 // --------
@@ -418,22 +355,23 @@ static void clear_error_condition(bo_context* context)
 // Buffer Flushing
 // ---------------
 
-static void flush_output_buffer(bo_context* context)
+static void flush_buffer_to_output(bo_context* context, bo_buffer* buffer)
 {
-    if(!context->on_output(context->user_data, (char*)context->output_buffer.start, buffer_get_used(&context->output_buffer)))
+    if(!context->on_output(context->user_data, (char*)buffer_get_start(buffer), buffer_get_used(buffer)))
     {
         mark_error_condition(context);
     }
-    buffer_clear(&context->output_buffer);
+    buffer_clear(buffer);
+}
+
+static void flush_output_buffer(bo_context* context)
+{
+    flush_buffer_to_output(context, &context->output_buffer);
 }
 
 static void flush_work_buffer_binary(bo_context* context)
 {
-    if(!context->on_output(context->user_data, (char*)context->work_buffer.start, buffer_get_used(&context->work_buffer)))
-    {
-        mark_error_condition(context);
-    }
-    buffer_clear(&context->work_buffer);
+    flush_buffer_to_output(context, &context->work_buffer);
 }
 
 static void flush_work_buffer(bo_context* context, bool is_complete_flush)
@@ -455,46 +393,47 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
         return;
     }
 
+    bo_buffer* work_buffer = &context->work_buffer;
+    bo_buffer* output_buffer = &context->output_buffer;
+
     int bytes_per_entry = context->output.data_width;
-    int work_length = buffer_get_used(&context->work_buffer);
+    int work_length = buffer_get_used(work_buffer);
     if(is_complete_flush)
     {
         // Ensure that the partial read at the end gets zeroes instead of random garbage.
         // WORK_BUFFER_OVERHEAD_SIZE makes sure this call doesn't run off the end of the buffer.
-        memset(context->work_buffer.pos, 0, 16);
+        memset(buffer_get_position(work_buffer), 0, 16);
     }
     else
     {
         work_length = trim_length_to_object_boundary(work_length, bytes_per_entry);
     }
 
-    buffer_clear(&context->output_buffer);
-    bo_buffer* out = &context->output_buffer;
-    uint8_t* end = context->work_buffer.start + work_length;
+    buffer_clear(output_buffer);
+    uint8_t* const start = buffer_get_start(work_buffer);
+    uint8_t* const end = start + work_length;
 
-    for(uint8_t* src = context->work_buffer.start; src < end; src += bytes_per_entry)
+    for(uint8_t* src = start; src < end; src += bytes_per_entry)
     {
         if(context->output.prefix != NULL && *context->output.prefix != 0)
         {
-            strcpy((char*)out->pos, context->output.prefix);
-            out->pos += strlen((char*)out->pos);
+            buffer_append_string(output_buffer, context->output.prefix);
         }
 
-        int bytes_written = string_print(src, out->pos, context->output.text_width, context->output.endianness);
+        int bytes_written = string_print(src, buffer_get_position(output_buffer), context->output.text_width, context->output.endianness);
         if(bytes_written < 0)
         {
             bo_notify_error(context, "Error writing string value");
             return;
         }
-        out->pos += bytes_written;
+        buffer_use_space(output_buffer, bytes_written);
 
         if(src + bytes_per_entry < end && context->output.suffix != NULL)
         {
-            strcpy((char*)out->pos, context->output.suffix);
-            out->pos += strlen((char*)out->pos);
+            buffer_append_string(output_buffer, context->output.suffix);
         }
 
-        if(buffer_is_high_water(out))
+        if(buffer_is_high_water(output_buffer))
         {
             flush_output_buffer(context);
             if(!should_continue_parsing(context))
@@ -503,7 +442,7 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
             }
         }
     }
-    buffer_clear(&context->work_buffer);
+    buffer_clear(work_buffer);
 }
 
 
@@ -526,8 +465,7 @@ static void add_bytes(bo_context* context, const uint8_t* ptr, int length)
         {
             copy_length = length;
         }
-	    memcpy(context->work_buffer.pos, ptr, copy_length);
-	    buffer_use_space(&context->work_buffer, copy_length);
+        buffer_append_bytes(&context->work_buffer, ptr, copy_length);
         if(buffer_is_high_water(&context->work_buffer))
         {
     	    flush_work_buffer(context, false);
@@ -786,8 +724,8 @@ void* bo_new_context(void* user_data, output_callback on_output, error_callback 
     LOG("New callback context");
     bo_context context =
     {
-        .work_buffer = bo_new_buffer(WORK_BUFFER_SIZE, WORK_BUFFER_OVERHEAD_SIZE),
-        .output_buffer = bo_new_buffer(WORK_BUFFER_SIZE * 10, OUTPUT_BUFFER_OVERHEAD_SIZE),
+        .work_buffer = buffer_alloc(WORK_BUFFER_SIZE, WORK_BUFFER_OVERHEAD_SIZE),
+        .output_buffer = buffer_alloc(WORK_BUFFER_SIZE * 10, OUTPUT_BUFFER_OVERHEAD_SIZE),
         .input =
         {
             .data_type = TYPE_NONE,
@@ -820,8 +758,8 @@ bool bo_flush_and_destroy_context(void* void_context)
     flush_work_buffer(context, true);
     flush_output_buffer(context);
     bool is_successful = !is_error_condition(context);
-    bo_free_buffer(&context->work_buffer);
-    bo_free_buffer(&context->output_buffer);
+    buffer_free(&context->work_buffer);
+    buffer_free(&context->output_buffer);
     if(context->output.prefix != NULL)
     {
         free((void*)context->output.prefix);

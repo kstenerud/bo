@@ -34,6 +34,7 @@ extern "C" {
 #include <stdint.h>
 
 #include "bo/bo.h"
+#include "bo_buffer.h"
 
 
 #if BO_ENABLE_LOGGING
@@ -71,14 +72,6 @@ typedef enum
     WIDTH_8  =  8,
     WIDTH_16 = 16,
 } bo_data_width;
-
-typedef struct
-{
-    uint8_t* start;
-    uint8_t* end;
-    uint8_t* pos;
-    uint8_t* high_water;
-} bo_buffer;
 
 typedef struct
 {
@@ -127,6 +120,17 @@ void bo_notify_error(bo_context* context, const char* fmt, ...);
 static inline bool should_continue_parsing(bo_context* context)
 {
     return context->parse_should_continue;
+}
+
+static inline void stop_parsing(bo_context* context)
+{
+    context->parse_should_continue = false;
+}
+
+static inline void stop_parsing_at(bo_context* context, uint8_t* position)
+{
+    context->src_buffer.pos = position;
+    stop_parsing(context);
 }
 
 static inline bool is_error_condition(bo_context* context)

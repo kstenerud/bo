@@ -251,12 +251,6 @@ static inline bool is_last_data_segment(bo_context* context)
     return context->data_segment_type == DATA_SEGMENT_LAST;
 }
 
-static inline void set_parse_interrupted_at(bo_context* context, uint8_t* position)
-{
-    context->src_buffer.pos = position;
-    context->parse_should_continue = false;
-}
-
 static inline void null_terminate_string(uint8_t* ptr)
 {
     *ptr = 0;
@@ -399,7 +393,7 @@ static inline uint8_t* handle_end_of_data(bo_context* context,
         return NULL;
     }
 
-    set_parse_interrupted_at(context, interruption_point);
+    stop_parsing_at(context, interruption_point);
     return interruption_point;
 }
 
