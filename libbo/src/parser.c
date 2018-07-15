@@ -211,6 +211,17 @@ static int g_min_data_widths[] =
     1, // String
 };
 
+static inline bool should_continue_parsing(bo_context* context)
+{
+    return context->parse_should_continue;
+}
+
+static inline void stop_parsing_at(bo_context* context, uint8_t* position)
+{
+    context->src_buffer.pos = position;
+    stop_parsing(context);
+}
+
 static bool verify_data_width(bo_context* context, bo_data_type data_type, int width)
 {
     if(width < g_min_data_widths[data_type])

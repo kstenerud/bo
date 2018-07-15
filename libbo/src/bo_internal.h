@@ -117,20 +117,9 @@ void bo_on_output_type(bo_context* context, bo_data_type data_type, int data_wid
 void bo_notify_error(bo_context* context, const char* fmt, ...);
 
 
-static inline bool should_continue_parsing(bo_context* context)
-{
-    return context->parse_should_continue;
-}
-
 static inline void stop_parsing(bo_context* context)
 {
     context->parse_should_continue = false;
-}
-
-static inline void stop_parsing_at(bo_context* context, uint8_t* position)
-{
-    context->src_buffer.pos = position;
-    stop_parsing(context);
 }
 
 static inline bool is_error_condition(bo_context* context)
