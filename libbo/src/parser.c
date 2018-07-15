@@ -258,7 +258,7 @@ static inline void null_terminate_string(uint8_t* ptr)
 
 static bo_data_type extract_data_type(bo_context* context, uint8_t* token, int offset)
 {
-    if(token + offset >= context->src_buffer.end)
+    if(token + offset >= buffer_get_end(&context->src_buffer))
     {
         bo_notify_error(context, "%s: offset %d: Missing data type", token, offset);
         return TYPE_NONE;
@@ -289,7 +289,7 @@ static bo_data_type extract_data_type(bo_context* context, uint8_t* token, int o
 
 static int extract_data_width(bo_context* context, uint8_t* token, int offset)
 {
-    if(token + offset >= context->src_buffer.end)
+    if(token + offset >= buffer_get_end(&context->src_buffer))
     {
         bo_notify_error(context, "%s: offset %d: Missing data width", token, offset);
         return 0;
@@ -331,7 +331,7 @@ static int extract_data_width(bo_context* context, uint8_t* token, int offset)
 
 static bo_endianness extract_endianness(bo_context* context, uint8_t* token, int offset)
 {
-    if(token + offset >= context->src_buffer.end)
+    if(token + offset >= buffer_get_end(&context->src_buffer))
     {
         bo_notify_error(context, "%s: offset %d: Missing endianness", token, offset);
         return BO_ENDIAN_NONE;
@@ -369,18 +369,18 @@ static bo_endianness extract_endianness(bo_context* context, uint8_t* token, int
  */
 static void terminate_token(bo_context* context)
 {
-    uint8_t* ptr = context->src_buffer.pos;
-    for(; ptr < context->src_buffer.end; ptr++)
+    uint8_t* ptr = buffer_get_position(&context->src_buffer);
+    for(; ptr < buffer_get_end(&context->src_buffer); ptr++)
     {
         if(is_whitespace_character(*ptr))
         {
             null_terminate_string(ptr);
-            context->src_buffer.pos = ptr;
+            buffer_set_position(&context->src_buffer, ptr);
             return;
         }
     }
     context->is_at_end_of_input = true;
-    context->src_buffer.pos = ptr;
+    buffer_set_position(&context->src_buffer, ptr);
 }
 
 static inline uint8_t* handle_end_of_data(bo_context* context,
@@ -411,22 +411,22 @@ static inline uint8_t* handle_end_of_data(bo_context* context,
  */
 static uint8_t* parse_string(bo_context* context)
 {
-    uint8_t* string = context->src_buffer.pos;
+    uint8_t* string = buffer_get_position(&context->src_buffer);
     uint8_t* write_pos = string;
     uint8_t* read_pos = string;
 
-    for(; read_pos < context->src_buffer.end; read_pos++)
+    for(; read_pos < buffer_get_end(&context->src_buffer); read_pos++)
     {
         switch(*read_pos)
         {
             case '"':
                 null_terminate_string(write_pos);
-                context->src_buffer.pos = read_pos;
+                buffer_set_position(&context->src_buffer, read_pos);
                 return write_pos;
             case '\\':
             {
                 uint8_t* escape_pos = read_pos;
-                int remaining_bytes = context->src_buffer.end - read_pos;
+                int remaining_bytes = buffer_get_end(&context->src_buffer) - read_pos;
                 if(remaining_bytes < 1)
                 {
                     return handle_end_of_data(context, escape_pos, "Unterminated escape sequence");
@@ -515,14 +515,14 @@ static uint8_t* parse_string(bo_context* context)
 
 static void on_unknown_token(bo_context* context)
 {
-    uint8_t* token = context->src_buffer.pos;
+    uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
     if(!is_at_end_of_input(context))
     {
         bo_notify_error(context, "%s: Unknown token", token);
     }
 
-    int length = context->src_buffer.end - token;
+    int length = buffer_get_end(&context->src_buffer) - token;
     uint8_t* token_copy = malloc(length + 1);
     memcpy(token_copy, token, length);
     null_terminate_string(token_copy + length);
@@ -532,8 +532,8 @@ static void on_unknown_token(bo_context* context)
 
 static void on_string(bo_context* context)
 {
-    context->src_buffer.pos++;
-    uint8_t* string_start = context->src_buffer.pos;
+    buffer_use_space(&context->src_buffer, 1);
+    uint8_t* string_start = buffer_get_position(&context->src_buffer);
     uint8_t* string_end = parse_string(context);
     if(is_error_condition(context))
     {
@@ -547,7 +547,7 @@ static void on_string(bo_context* context)
 
 static uint8_t* prefix_suffix_process_common(bo_context* context)
 {
-    uint8_t* token = context->src_buffer.pos;
+    uint8_t* token = buffer_get_position(&context->src_buffer);
     if(token[1] != '"')
     {
         terminate_token(context);
@@ -555,12 +555,12 @@ static uint8_t* prefix_suffix_process_common(bo_context* context)
         return NULL;
     }
 
-    context->src_buffer.pos += 2;
-    uint8_t* string = context->src_buffer.pos;
+    buffer_use_space(&context->src_buffer, 2);
+    uint8_t* string = buffer_get_position(&context->src_buffer);
     parse_string(context);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
     }
     return string;
 }
@@ -587,14 +587,14 @@ static void on_suffix(bo_context* context)
 
 static void on_input_type(bo_context* context)
 {
-    uint8_t* token = context->src_buffer.pos;
+    uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
     int offset = 1;
 
     bo_data_type data_type = extract_data_type(context, token, offset);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
         return;
     }
     offset += 1;
@@ -602,7 +602,7 @@ static void on_input_type(bo_context* context)
     int data_width = extract_data_width(context, token, offset);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
         return;
     }
     offset += data_width > 8 ? 2 : 1;
@@ -613,7 +613,7 @@ static void on_input_type(bo_context* context)
         endianness = extract_endianness(context, token, offset);
         if(!should_continue_parsing(context))
         {
-            context->src_buffer.pos = token;
+            buffer_set_position(&context->src_buffer, token);
             return;
         }
     }
@@ -626,22 +626,22 @@ static void on_input_type(bo_context* context)
     bo_on_input_type(context, data_type, data_width, endianness);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
         return;
     }
 }
 
 static void on_output_type(bo_context* context)
 {
-    uint8_t* token = context->src_buffer.pos;
+    uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
-    int token_length = context->src_buffer.pos - token;
+    int token_length = buffer_get_position(&context->src_buffer) - token;
     int offset = 1;
 
     bo_data_type data_type = extract_data_type(context, token, offset);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
         return;
     }
     offset += 1;
@@ -649,7 +649,7 @@ static void on_output_type(bo_context* context)
     int data_width = extract_data_width(context, token, offset);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
         return;
     }
     offset += data_width > 8 ? 2 : 1;
@@ -662,22 +662,22 @@ static void on_output_type(bo_context* context)
         endianness = extract_endianness(context, token, offset);
         if(!should_continue_parsing(context))
         {
-            context->src_buffer.pos = token;
+            buffer_set_position(&context->src_buffer, token);
             return;
         }
         offset += 1;
 
         if(data_type != TYPE_BINARY)
         {
-            if(token + offset >= context->src_buffer.end)
+            if(token + offset >= buffer_get_end(&context->src_buffer))
             {
-                context->src_buffer.pos = token;
+                buffer_set_position(&context->src_buffer, token);
                 bo_notify_error(context, "%s: offset %d: Missing print width", token, offset);
                 return;
             }
             if(!is_decimal_character(token[offset]))
             {
-                context->src_buffer.pos = token;
+                buffer_set_position(&context->src_buffer, token);
                 bo_notify_error(context, "%s: offset %d: Not a valid print width", token, offset);
                 return;
             }
@@ -694,33 +694,33 @@ static void on_output_type(bo_context* context)
     bo_on_output_type(context, data_type, data_width, endianness, print_width);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
         return;
     }
 }
 
 static void on_preset(bo_context* context)
 {
-    uint8_t* token = context->src_buffer.pos;
+    uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
 
     bo_on_preset(context, token + 1);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
         return;
     }
 }
 
 static void on_number(bo_context* context)
 {
-    uint8_t* token = context->src_buffer.pos;
+    uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
 
     bo_on_number(context, token);
     if(!should_continue_parsing(context))
     {
-        context->src_buffer.pos = token;
+        buffer_set_position(&context->src_buffer, token);
         return;
     }
 }
@@ -740,7 +740,7 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
     if(context->input.data_type == TYPE_BINARY)
     {
         bo_on_bytes(context, context->src_buffer.start, data_length);
-        return (char*)context->src_buffer.end;
+        return (char*)buffer_get_end(&context->src_buffer);
     }
 
     context->data_segment_type = data_segment_type;
@@ -748,7 +748,8 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
     context->is_error_condition = false;
     context->parse_should_continue = true;
 
-    for(;context->src_buffer.pos < context->src_buffer.end; context->src_buffer.pos++)
+    const uint8_t* const end = context->src_buffer.end;
+    for(;context->src_buffer.pos < end; context->src_buffer.pos++)
     {
         switch(*context->src_buffer.pos)
         {
@@ -784,7 +785,11 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
                 on_unknown_token(context);
                 break;
         }
-        if(!should_continue_parsing(context) || is_at_end_of_input(context))
+        if(!should_continue_parsing(context))
+        {
+            break;
+        }
+        if(is_at_end_of_input(context))
         {
             break;
         }
@@ -795,5 +800,5 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
     {
         return NULL;
     }
-    return (char*)context->src_buffer.pos;
+    return (char*)buffer_get_position(&context->src_buffer);
 }
