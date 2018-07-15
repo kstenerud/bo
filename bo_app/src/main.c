@@ -29,12 +29,15 @@
 #include <bo/bo.h>
 
 
+static const char* g_version = "1.0.0";
+
 static const char g_usage[] =
 	"Usage: bo [options] command [command] ...\n"
 	"\n"
 	"Options:\n"
 	"    -i [filename]: Read commands/data from a file (use \"-\" to read from stdin).\n"
 	"    -o [filename]: Write output to a file (use \"-\" to write to stdout).\n"
+	"    -v           : Print version and exit.\n"
 	"\n"
 	"Commands:\n"
 	"    i{type}{data width}{endianness}: Specify how to interpret input data\n"
@@ -82,6 +85,11 @@ static const char g_usage[] =
 	"Example: Convert the 32-bit float 1.5 to its little endian hex representation using \"C\" preset:\n"
 	"    bo oh1l2 if4l Pc 1.5\n"
 	;
+
+static void print_version()
+{
+	printf("Bo version %s\n", g_version);
+}
 
 static void print_usage()
 {
@@ -217,7 +225,7 @@ int main(int argc, char* argv[])
 	int in_file_count = 0;
 	FILE* out_stream = stdout;
 	int opt;
-    while((opt = getopt (argc, argv, "i:o:h")) != -1)
+    while((opt = getopt (argc, argv, "i:o:hv")) != -1)
     {
     	switch(opt)
         {
@@ -234,9 +242,14 @@ int main(int argc, char* argv[])
 		    	out_stream = new_output_stream(optarg);
         		break;
         	case 'h':
+        		print_version();
 				print_usage();
 				goto success;
+			case 'v':
+        		print_version();
+        		goto success;
       		default:
+        		print_version();
 				print_usage();
 				goto failed;
       	}
