@@ -302,9 +302,19 @@ static string_printer get_string_printer(bo_context* context)
 // Internal
 // --------
 
-static inline bool can_input_numbers(bo_context* context)
+static inline bool is_nonempty_string(const char* const string)
 {
-    return context->input.data_type != TYPE_NONE;
+    return string != NULL && *string != 0;
+}
+
+static inline bool check_can_input_numbers(bo_context* context)
+{
+    if(context->input.data_type == TYPE_NONE)
+    {
+        bo_notify_error(context, "Must set input type before adding numbers");
+        return false;
+    }
+    return true;
 }
 
 static int trim_length_to_object_boundary(int length, int object_size_in_bytes)
@@ -409,12 +419,14 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
         work_length = trim_length_to_object_boundary(work_length, bytes_per_entry);
     }
 
+    const bool has_prefix = is_nonempty_string(context->output.prefix);
+    const bool has_suffix = is_nonempty_string(context->output.suffix);
     uint8_t* const start = buffer_get_start(work_buffer);
     uint8_t* const end = start + work_length;
 
     for(uint8_t* src = start; src < end; src += bytes_per_entry)
     {
-        if(context->output.prefix != NULL && *context->output.prefix != 0)
+        if(has_prefix)
         {
             buffer_append_string(output_buffer, context->output.prefix);
         }
@@ -427,9 +439,13 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
         }
         buffer_use_space(output_buffer, bytes_written);
 
-        if(src + bytes_per_entry < end && context->output.suffix != NULL)
+        if(has_suffix)
         {
-            buffer_append_string(output_buffer, context->output.suffix);
+            bool is_last_entry = src + bytes_per_entry >= end;
+            if(!is_last_entry)
+            {
+                buffer_append_string(output_buffer, context->output.suffix);
+            }
         }
 
         if(buffer_is_high_water(output_buffer))
@@ -587,7 +603,7 @@ static void add_float(bo_context* context, double src_value)
 void bo_on_bytes(bo_context* context, uint8_t* data, int length)
 {
     LOG("On bytes: %d", length);
-    if(context->input.data_width != 1 && context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
+    if(context->input.data_width > 1 && context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
     {
         swap_buffer_endianness(data, length, context->input.data_width);
     }
@@ -603,9 +619,8 @@ void bo_on_string(bo_context* context, const uint8_t* string_start, const uint8_
 void bo_on_number(bo_context* context, const uint8_t* string_value)
 {
     LOG("On number [%s]", string_value);
-    if(!can_input_numbers(context))
+    if(!check_can_input_numbers(context))
     {
-        bo_notify_error(context, "Must set input type before adding numbers");
         return;
     }
 
