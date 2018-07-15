@@ -54,3 +54,13 @@ TEST(BO_Span, number)
     assert_spanning_conversion("ih1 oh1l2 12 ", 12, 10, "");
     assert_spanning_conversion("ih1 oh1l2 12 ", 13, 13, "12");
 }
+
+TEST(BO_Span, string)
+{
+    assert_spanning_conversion("oB1 \"abcd\"",  5, 5, "");
+    assert_spanning_conversion("oB1 \"abcd\"",  6, 6, "a");
+    assert_spanning_conversion("oB1 \"abcd\"",  7, 7, "ab");
+    assert_spanning_conversion("oB1 \"abcd\"",  8, 8, "abc");
+    assert_spanning_conversion("oB1 \"abcd\"",  9, 9, "abcd");
+    assert_spanning_conversion("oB1 \"abcd\"", 10, 10, "abcd");
+}
