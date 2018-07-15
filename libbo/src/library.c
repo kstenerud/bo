@@ -398,7 +398,7 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
     }
 
     string_printer string_print = get_string_printer(context);
-    if(!should_continue_parsing(context))
+    if(is_error_condition(context))
     {
         return;
     }
@@ -451,7 +451,7 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
         if(buffer_is_high_water(output_buffer))
         {
             flush_output_buffer(context);
-            if(!should_continue_parsing(context))
+            if(is_error_condition(context))
             {
                 return;
             }
