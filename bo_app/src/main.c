@@ -253,7 +253,7 @@ int main(int argc, char* argv[])
 
 	for(int i = optind; i < argc; i++)
 	{
-		if(bo_process(context, argv[i], strlen(argv[i]), true) == NULL)
+		if(bo_process(context, argv[i], strlen(argv[i]), DATA_SEGMENT_LAST) == NULL)
 		{
 			goto failed;
 		}

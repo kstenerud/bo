@@ -79,13 +79,19 @@ void* bo_new_context(void* user_data, output_callback on_output, error_callback 
 bool bo_flush_and_destroy_context(void* context);
 
 /**
- * Process a stream of data, returning output via the output_callback set in the context.
+ * Process a chunk of data, returning output via the output_callback set in the context.
  *
- * If the data chunk being passed in is part of a series (e.g. coming from a file or network stream),
- * use DATA_SEGMENT_STREAM, and then DATA_SEGMENT_LAST for the last packet to process.
- * When the segment type is DATA_SEGMENT_STREAM, bo will defer processing commands or data that span
- * data segments. The return value will reflect where processing stopped, so that you can copy the
- * remaining data to the beginning of the buffer and top up the rest from your data source.
+ * When streaming data (e.g. from a file or socket), use DATA_SEGMENT_STREAM, and then
+ * DATA_SEGMENT_LAST for the last packet to process.
+ *
+ * When not streaming data (i.e. no chance for data to span process calls), use DATA_SEGMENT_LAST.
+ *
+ * When the segment type is DATA_SEGMENT_STREAM, bo will defer processing commands or data that
+ * span data segments. The return value will show where processing stopped, so that you can copy
+ * the remaining unprocessed data to the beginning of the buffer and fill the remainder from your
+ * data source.
+ *
+ * Remember to call bo_flush_and_destroy_context() when all processing is finished.
  *
  * @param context A context created by bo_new_context().
  * @param data The data to process.
