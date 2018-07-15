@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 
-// #define BO_ENABLE_LOGGING 1
+#define BO_ENABLE_LOGGING 0
 
 
 #include <stdbool.h>

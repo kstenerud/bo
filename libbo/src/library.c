@@ -307,11 +307,11 @@ static inline bool is_nonempty_string(const char* const string)
     return string != NULL && *string != 0;
 }
 
-static inline bool check_can_input_numbers(bo_context* context)
+static inline bool check_can_input_numbers(bo_context* context, const uint8_t* string_value)
 {
     if(context->input.data_type == TYPE_NONE)
     {
-        bo_notify_error(context, "Must set input type before adding numbers");
+        bo_notify_error(context, "%s: Must set input type before adding numbers", (const char*)string_value);
         return false;
     }
     return true;
@@ -619,7 +619,7 @@ void bo_on_string(bo_context* context, const uint8_t* string_start, const uint8_
 void bo_on_number(bo_context* context, const uint8_t* string_value)
 {
     LOG("On number [%s]", string_value);
-    if(!check_can_input_numbers(context))
+    if(!check_can_input_numbers(context, string_value))
     {
         return;
     }

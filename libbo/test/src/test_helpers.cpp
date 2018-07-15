@@ -88,7 +88,7 @@ void assert_conversion(const char* input, const char* expected_output)
 	free((void*)input_copy);
 }
 
-void assert_spanning_conversion(const char* input, int split_point, const char* expected_output)
+void assert_spanning_conversion(const char* input, int split_point, int expected_offset, const char* expected_output)
 {
 	reset_errors();
 	char buffer[10000];
@@ -96,11 +96,11 @@ void assert_spanning_conversion(const char* input, int split_point, const char* 
 	char* input_copy = strdup(input);
 	void* context = bo_new_context(&test_context, on_output, on_error);
 	char* processed_to = process_and_terminate(context, input_copy, split_point, DATA_SEGMENT_STREAM);
-	ASSERT_TRUE(processed_to != NULL);
-	bool process_success = check_processed_all_data(context, input_copy+split_point, strlen(input_copy+split_point), DATA_SEGMENT_LAST);
 	bool flush_success = bo_flush_and_destroy_context(context);
-	ASSERT_TRUE(process_success);
 	ASSERT_TRUE(flush_success);
+	ASSERT_TRUE(processed_to != NULL);
+	char* expected_ptr = input_copy + expected_offset;
+	ASSERT_EQ(expected_ptr, processed_to);
 	ASSERT_FALSE(has_errors());
 	ASSERT_STREQ(expected_output, buffer);
 	free((void*)input_copy);
