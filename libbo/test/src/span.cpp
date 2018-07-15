@@ -81,4 +81,5 @@ TEST(BO_Span, string_continuation)
     assert_spanning_continuation("oB1 \"abcd\"",  8,  8, "abcd");
     assert_spanning_continuation("oB1 \"abcd\"",  9,  9, "abcd");
     assert_spanning_continuation("oB1 \"abcd\"", 10, 10, "abcd");
+    assert_spanning_continuation("oB1 \"abcd\" \"ab\"", 15, 15, "abcdab");
 }
