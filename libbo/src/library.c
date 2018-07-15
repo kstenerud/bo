@@ -485,7 +485,7 @@ static void add_bytes(bo_context* context, const uint8_t* ptr, int length)
         {
     	    flush_work_buffer(context, false);
         }
-        if(!should_continue_parsing(context))
+        if(is_error_condition(context))
 	    {
 	    	return;
 	    }
