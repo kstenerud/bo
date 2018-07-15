@@ -409,7 +409,6 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
         work_length = trim_length_to_object_boundary(work_length, bytes_per_entry);
     }
 
-    buffer_clear(output_buffer);
     uint8_t* const start = buffer_get_start(work_buffer);
     uint8_t* const end = start + work_length;
 
