@@ -76,7 +76,7 @@ static const char g_usage[] =
 	"\n"
 	"Notes:\n"
 	"    Presets must be applied AFTER setting the output type.\n"
-	"    Surrounding quotes aren't necessary except for arguments containing string values.\n"
+	"    Surrounding quoted quotes aren't necessary except for arguments containing string values.\n"
 	"    A single command line argument may contain multiple commands.\n"
 	"\n"
 	"Example: Convert the string \"Testing\" to its hex representation using \"space\" preset:\n"
