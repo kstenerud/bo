@@ -250,13 +250,12 @@ Convert the endianness of a binary file containing 16-bit values:
 
 Convert the endianness of a binary file containing 16-bit values, using stdin and stdout:
 
-    cat somefile.bin | bo -i - -o - oB2l iB2b > result.bin
+    cat somefile.bin | bo -i - oB2l iB2b > swapped.bin
 
   * Set output type to binary, 2 bytes per value, little endian.
   * Set input type to binary, 2 bytes per value, big endian.
   * Read binary data from stdin
   * Write binary data to stdout
-
 
 Convert the string "Testing" to its hex representation using "space" preset:
 
@@ -269,7 +268,7 @@ output: 54 65 73 74 69 6e 67
 Libbo
 -----
 
-All of bo's functionality is in the library libbo. The API is small (6 calls, 2 callbacks) and pretty straightforward since all commands and configurations are done through the parsed data. The basic process is:
+All of bo's functionality is in the library libbo. The API is small (4 calls, 2 callbacks) and pretty straightforward since all commands and configurations are done through the parsed data. The basic process is:
 
   * Build a context object according to your needs.
   * Call one or more process functions.

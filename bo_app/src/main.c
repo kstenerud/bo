@@ -69,11 +69,17 @@ static const char g_usage[] =
 	"    c: C-style preset: \", \" suffix, 0x prefix for hexadecimal, 0 prefix for octal.\n"
 	"    s: Space preset: \" \" suffix.\n"
 	"\n"
-	"Example: Convert the string \"Testing\" to its hex representation using \"space\" preset:\n"
+	"Notes:\n"
+	"    Presets must be applied AFTER setting the output type.\n"
+	"    Surrounding quotes aren't necessary except for arguments containing string values.\n"
+	"    A single command line argument may contain multiple commands.\n"
 	"\n"
+	"Example: Convert the string \"Testing\" to its hex representation using \"space\" preset:\n"
 	"    bo \"oh1b2 Ps ih1b \\\"Testing\\\"\"\n"
+	"\n"
+	"Example: Convert the 32-bit float 1.5 to its little endian hex representation using \"C\" preset:\n"
+	"    bo oh1l2 if4l Pc 1.5\n"
 	;
-
 
 static void print_usage()
 {
