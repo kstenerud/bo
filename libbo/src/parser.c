@@ -381,6 +381,10 @@ static void terminate_token(bo_context* context)
     }
     context->is_at_end_of_input = true;
     buffer_set_position(&context->src_buffer, ptr);
+    if(context->data_segment_type == DATA_SEGMENT_STREAM)
+    {
+        stop_parsing(context);
+    }
 }
 
 static inline uint8_t* handle_end_of_data(bo_context* context,
@@ -589,6 +593,10 @@ static void on_input_type(bo_context* context)
 {
     uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
+    if(!should_continue_parsing(context))
+    {
+        return;
+    }
     int offset = 1;
 
     bo_data_type data_type = extract_data_type(context, token, offset);
@@ -635,6 +643,10 @@ static void on_output_type(bo_context* context)
 {
     uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
+    if(!should_continue_parsing(context))
+    {
+        return;
+    }
     int token_length = buffer_get_position(&context->src_buffer) - token;
     int offset = 1;
 
@@ -703,6 +715,10 @@ static void on_preset(bo_context* context)
 {
     uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
+    if(!should_continue_parsing(context))
+    {
+        return;
+    }
 
     bo_on_preset(context, token + 1);
     if(!should_continue_parsing(context))
@@ -716,6 +732,10 @@ static void on_number(bo_context* context)
 {
     uint8_t* token = buffer_get_position(&context->src_buffer);
     terminate_token(context);
+    if(!should_continue_parsing(context))
+    {
+        return;
+    }
 
     bo_on_number(context, token);
     if(!should_continue_parsing(context))
