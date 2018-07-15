@@ -72,3 +72,13 @@ TEST(BO_Span, string2)
     assert_spanning_conversion("oh1l2 \"abcd\"", 10, 10, "616263");
     assert_spanning_conversion("oh1l2 \"abcd\"", 11, 11, "61626364");
 }
+
+TEST(BO_Span, string_continuation)
+{
+    assert_spanning_continuation("oB1 \"abcd\"",  5,  5, "abcd");
+    assert_spanning_continuation("oB1 \"abcd\"",  6,  6, "abcd");
+    assert_spanning_continuation("oB1 \"abcd\"",  7,  7, "abcd");
+    assert_spanning_continuation("oB1 \"abcd\"",  8,  8, "abcd");
+    assert_spanning_continuation("oB1 \"abcd\"",  9,  9, "abcd");
+    assert_spanning_continuation("oB1 \"abcd\"", 10, 10, "abcd");
+}

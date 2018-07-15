@@ -545,15 +545,18 @@ static void on_unknown_token(bo_context* context)
     free(token_copy);
 }
 
-static void on_string(bo_context* context)
+static void on_string(bo_context* context, int offset)
 {
-    int offset = 1;
     uint8_t* string_start = buffer_get_position(&context->src_buffer) + offset;
     uint8_t* string_end = parse_string(context, offset);
     if(is_error_condition(context)) return;
     if(string_end > string_start)
     {
         bo_on_string(context, string_start, string_end);
+    }
+    if(!should_continue_parsing(context))
+    {
+        context->is_spanning_string = true;
     }
 }
 
@@ -729,6 +732,13 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
     context->is_error_condition = false;
     context->parse_should_continue = true;
 
+    if(context->is_spanning_string)
+    {
+        context->is_spanning_string = false;
+        on_string(context, 0);
+        context->src_buffer.pos++;
+    }
+
     const uint8_t* const end = context->src_buffer.end;
     for(;context->src_buffer.pos < end; context->src_buffer.pos++)
     {
@@ -740,7 +750,7 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
             case ' ': case '\t': case '\r':
                 break;
             case '"':
-                on_string(context);
+                on_string(context, 1);
                 break;
             case 'i':
                 on_input_type(context);
@@ -781,6 +791,6 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
     {
         return NULL;
     }
-    LOG("done = %s", context->src_buffer.pos);
+    LOG("done = %s", buffer_get_position(&context->src_buffer));
     return (char*)buffer_get_position(&context->src_buffer);
 }

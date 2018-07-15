@@ -101,6 +101,7 @@ typedef struct
     bool is_at_end_of_input;
     bool is_error_condition;
     bool parse_should_continue;
+    bool is_spanning_string;
 } bo_context;
 
 

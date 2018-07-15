@@ -715,7 +715,7 @@ void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_widt
 
 void bo_on_output_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness, int print_width)
 {
-    LOG("Set input type %d, width %d, endianness %d, print width %d", data_type, data_width, endianness, print_width);
+    LOG("Set output type %d, width %d, endianness %d, print width %d", data_type, data_width, endianness, print_width);
     context->output.data_type = data_type;
     context->output.data_width = data_width;
     context->output.endianness = endianness;
@@ -738,12 +738,14 @@ void* bo_new_context(void* user_data, output_callback on_output, error_callback 
     LOG("New callback context");
     bo_context context =
     {
+        .src_buffer = {0},
         .work_buffer = buffer_alloc(WORK_BUFFER_SIZE, WORK_BUFFER_OVERHEAD_SIZE),
         .output_buffer = buffer_alloc(WORK_BUFFER_SIZE * 10, OUTPUT_BUFFER_OVERHEAD_SIZE),
         .input =
         {
             .data_type = TYPE_NONE,
             .data_width = 0,
+            .endianness = BO_ENDIAN_NONE,
         },
         .output =
         {
@@ -752,11 +754,17 @@ void* bo_new_context(void* user_data, output_callback on_output, error_callback 
             .text_width = 0,
             .prefix = NULL,
             .suffix = NULL,
-            .endianness = BO_ENDIAN_LITTLE,
+            .endianness = BO_ENDIAN_NONE,
         },
         .on_error = on_error,
         .on_output = on_output,
         .user_data = user_data,
+
+        .data_segment_type = DATA_SEGMENT_STREAM,
+        .is_at_end_of_input = false,
+        .is_error_condition = false,
+        .parse_should_continue = false,
+        .is_spanning_string = false,
     };
 
     bo_context* heap_context = (bo_context*)malloc(sizeof(context));
