@@ -367,16 +367,14 @@ static bo_endianness extract_endianness(bo_context* context, uint8_t* token, int
 // ---------------
 
 /**
- * Terminate a token.
+ * Terminate the token pointed to by the src buffer.
  * THIS FUNCTION MODIFIES MEMORY!
  *
  * Reads until the first whitespace and replaces the whitespace with null termination.
- * If no whitespace is encountered, marks "end of input" in the context.
- * Regardless of outcome (end of input or not), the current token will have null termination.
+ * If no whitespace is encountered, and we're mid stream, ends parsing.
  *
  * @param context The context.
- * @param ptr Pointer to the current location in the input text.
- * @return pointer to the end of the token (the null termination).
+ * @return Pointer to one past the end of the token.
  */
 static uint8_t* terminate_token(bo_context* context)
 {
@@ -421,7 +419,7 @@ static inline uint8_t* handle_end_of_data(bo_context* context,
  *
  * @param context The context.
  * @param string The string to parse.
- * @return A pointer to the end of the string, or NULL if an exception occurred.
+ * @return A pointer to the end of the string, or NULL if an error occurred.
  */
 static uint8_t* parse_string(bo_context* context, int offset)
 {
