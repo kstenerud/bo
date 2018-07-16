@@ -53,6 +53,8 @@ Usage
 
   * -i [filename]: Read commands/data from a file.
   * -o [filename]: Write output to a file.
+  * -h Print help and exit.
+  * -v Print version and exit.
 
 
 Specifying "-" as the filename will cause bo to use stdin (when used with -i) or stdout (when used with -o).
