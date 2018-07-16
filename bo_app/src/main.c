@@ -39,7 +39,9 @@ static const char g_usage[] =
 	"Options:\n"
 	"    -i [filename]: Read commands/data from a file (use \"-\" to read from stdin).\n"
 	"    -o [filename]: Write output to a file (use \"-\" to write to stdout).\n"
+	"    -n           : Write a newline after processing is complete.\n"
 	"    -v           : Print version and exit.\n"
+	"    -h           : Print help and exit.\n"
 	"\n"
 	"Commands:\n"
 	"    i{type}{data width}{endianness}: Specify how to interpret input data\n"
@@ -166,11 +168,15 @@ static void close_stream(FILE* stream)
 	fclose(stream);
 }
 
-static void teardown(void* context, FILE* out_stream, const char** in_filenames, int in_filenames_count)
+static void teardown(void* context, FILE* out_stream, const char** in_filenames, int in_filenames_count, bool should_print_newline)
 {
 	if(context != NULL)
 	{
 		bo_flush_and_destroy_context(context);
+	}
+	if(out_stream != NULL && should_print_newline)
+	{
+		fprintf(out_stream, "\n");
 	}
 	close_stream(out_stream);
 	for(int i = 0; i < in_filenames_count; i++)
@@ -226,8 +232,9 @@ int main(int argc, char* argv[])
 	const char* in_filenames[max_file_count];
 	int in_file_count = 0;
 	FILE* out_stream = stdout;
+	bool should_print_newline = false;
 	int opt;
-    while((opt = getopt (argc, argv, "i:o:hv")) != -1)
+    while((opt = getopt (argc, argv, "i:o:hnv")) != -1)
     {
     	switch(opt)
         {
@@ -242,6 +249,9 @@ int main(int argc, char* argv[])
 		    case 'o':
 		    	close_stream(out_stream); // Just in case the user does something stupid
 		    	out_stream = new_output_stream(optarg);
+        		break;
+			case 'n':
+        		should_print_newline = true;
         		break;
         	case 'h':
         		print_version();
@@ -294,11 +304,11 @@ int main(int argc, char* argv[])
 	}
 
 success:
-	teardown(context, out_stream, in_filenames, in_file_count);
+	teardown(context, out_stream, in_filenames, in_file_count, should_print_newline);
 	return 0;
 
 failed:
 	printf("Use bo -h for help.\n");
-	teardown(context, out_stream, in_filenames, in_file_count);
+	teardown(context, out_stream, in_filenames, in_file_count, false);
 	return 1;
 }
