@@ -89,7 +89,7 @@ static inline void copy_swapped(uint8_t* dst, uint8_t* src, int length)
 	}
 }
 
-typedef int (*string_printer)(uint8_t* src, uint8_t* dst, int text_width, bo_endianness endianness);
+typedef int (*string_printer)(uint8_t* src, uint8_t* dst, int text_width);
 
 // Force the compiler to generate handler code for unaligned accesses.
 #define DEFINE_SAFE_STRUCT(NAME, TYPE) typedef struct __attribute__((__packed__)) {TYPE contents;} NAME
@@ -109,52 +109,45 @@ DEFINE_SAFE_STRUCT(safe_decimal_8,  _Decimal64);
 DEFINE_SAFE_STRUCT(safe_decimal_16, _Decimal128);
 
 #define DEFINE_INT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t* src, uint8_t* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width) \
 { \
 	return sprintf((char*)dst, "%0*" #FORMAT, text_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
 } \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width, bo_endianness endianness) \
+
+#define DEFINE_INT_STRING_PRINTER_SWAPPED(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
+DEFINE_INT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _swapped (uint8_t* src, uint8_t* dst, int text_width) \
 { \
-	if(DATA_WIDTH == 1 || endianness == BO_NATIVE_INT_ENDIANNESS) \
-	{ \
-		return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (src, dst, text_width); \
-	} \
-\
 	uint8_t buffer[DATA_WIDTH]; \
 	copy_swapped(buffer, src, DATA_WIDTH); \
-	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
+	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (buffer, dst, text_width); \
 }
 DEFINE_INT_STRING_PRINTER(int, int, 1, d)
-DEFINE_INT_STRING_PRINTER(int, int, 2, d)
-DEFINE_INT_STRING_PRINTER(int, int, 4, d)
-DEFINE_INT_STRING_PRINTER(int, int, 8, ld)
+DEFINE_INT_STRING_PRINTER_SWAPPED(int, int, 2, d)
+DEFINE_INT_STRING_PRINTER_SWAPPED(int, int, 4, d)
+DEFINE_INT_STRING_PRINTER_SWAPPED(int, int, 8, ld)
 // TODO: int-16
 DEFINE_INT_STRING_PRINTER(hex, uint, 1, x)
-DEFINE_INT_STRING_PRINTER(hex, uint, 2, x)
-DEFINE_INT_STRING_PRINTER(hex, uint, 4, x)
-DEFINE_INT_STRING_PRINTER(hex, uint, 8, lx)
+DEFINE_INT_STRING_PRINTER_SWAPPED(hex, uint, 2, x)
+DEFINE_INT_STRING_PRINTER_SWAPPED(hex, uint, 4, x)
+DEFINE_INT_STRING_PRINTER_SWAPPED(hex, uint, 8, lx)
 // TODO: hex-16
 DEFINE_INT_STRING_PRINTER(octal, uint, 1, o)
-DEFINE_INT_STRING_PRINTER(octal, uint, 2, o)
-DEFINE_INT_STRING_PRINTER(octal, uint, 4, o)
-DEFINE_INT_STRING_PRINTER(octal, uint, 8, lo)
+DEFINE_INT_STRING_PRINTER_SWAPPED(octal, uint, 2, o)
+DEFINE_INT_STRING_PRINTER_SWAPPED(octal, uint, 4, o)
+DEFINE_INT_STRING_PRINTER_SWAPPED(octal, uint, 8, lo)
 // TODO: octal-16
 
 #define DEFINE_FLOAT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (uint8_t* src, uint8_t* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width) \
 { \
 	return sprintf((char*)dst, "%.*" #FORMAT, text_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
 } \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width, bo_endianness endianness) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _swapped (uint8_t* src, uint8_t* dst, int text_width) \
 { \
-	if(endianness == BO_NATIVE_FLOAT_ENDIANNESS) \
-	{ \
-		return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (src, dst, text_width); \
-	} \
-\
 	uint8_t buffer[DATA_WIDTH]; \
 	copy_swapped(buffer, src, DATA_WIDTH); \
-	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _internal (buffer, dst, text_width); \
+	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (buffer, dst, text_width); \
 }
 // TODO: float-2
 DEFINE_FLOAT_STRING_PRINTER(float, float, 4, f)
@@ -164,38 +157,34 @@ DEFINE_FLOAT_STRING_PRINTER(float, float, 8, f)
 // TODO: decimal-16
 
 #define DEFINE_BINARY_PRINTER(DATA_WIDTH) \
-static int binary_print_ ## DATA_WIDTH ## _le(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width, __attribute__ ((unused)) bo_endianness endianness) \
+static int binary_print_ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width) \
 { \
-    if(BO_NATIVE_INT_ENDIANNESS == BO_ENDIAN_LITTLE) \
-    { \
-        memcpy(dst, src, DATA_WIDTH); \
-    } \
-    else \
-    { \
-        copy_swapped(dst, src, DATA_WIDTH); \
-    } \
+    memcpy(dst, src, DATA_WIDTH); \
     return DATA_WIDTH; \
 } \
-static int binary_print_ ## DATA_WIDTH ## _be(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width, __attribute__ ((unused)) bo_endianness endianness) \
+static int binary_print_ ## DATA_WIDTH ## _swapped(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width) \
 { \
-    if(BO_NATIVE_INT_ENDIANNESS == BO_ENDIAN_BIG) \
-    { \
-        memcpy(dst, src, DATA_WIDTH); \
-    } \
-    else \
-    { \
-        copy_swapped(dst, src, DATA_WIDTH); \
-    } \
+    copy_swapped(dst, src, DATA_WIDTH); \
     return DATA_WIDTH; \
 }
 DEFINE_BINARY_PRINTER(2)
 DEFINE_BINARY_PRINTER(4)
 DEFINE_BINARY_PRINTER(8)
 DEFINE_BINARY_PRINTER(16)
-static int binary_print_1(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width, __attribute__ ((unused)) bo_endianness endianness)
+static int binary_print_1(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width)
 {
     *dst = *src;
     return 1;
+}
+
+bool matches_endianness(bo_context* context)
+{
+    return context->output.endianness == BO_NATIVE_INT_ENDIANNESS;
+}
+
+bool matches_float_endianness(bo_context* context)
+{
+    return context->output.endianness == BO_NATIVE_FLOAT_ENDIANNESS;
 }
 
 static string_printer get_string_printer(bo_context* context)
@@ -207,9 +196,9 @@ static string_printer get_string_printer(bo_context* context)
             switch(context->output.data_width)
             {
                 case 1: return string_print_int_1;
-                case 2: return string_print_int_2;
-                case 4: return string_print_int_4;
-                case 8: return string_print_int_8;
+                case 2: return matches_endianness(context) ? string_print_int_2 : string_print_int_2_swapped;
+                case 4: return matches_endianness(context) ? string_print_int_4 : string_print_int_4_swapped;
+                case 8: return matches_endianness(context) ? string_print_int_8 : string_print_int_8_swapped;
                 case 16:
                     bo_notify_error(context, "TODO: INT 16 not implemented");
                     return NULL;
@@ -223,9 +212,9 @@ static string_printer get_string_printer(bo_context* context)
             switch(context->output.data_width)
             {
                 case 1: return string_print_hex_1;
-                case 2: return string_print_hex_2;
-                case 4: return string_print_hex_4;
-                case 8: return string_print_hex_8;
+                case 2: return matches_endianness(context) ? string_print_hex_2 : string_print_hex_2_swapped;
+                case 4: return matches_endianness(context) ? string_print_hex_4 : string_print_hex_4_swapped;
+                case 8: return matches_endianness(context) ? string_print_hex_8 : string_print_hex_8_swapped;
                 case 16:
                     bo_notify_error(context, "TODO: HEX 16 not implemented");
                     return NULL;
@@ -239,9 +228,9 @@ static string_printer get_string_printer(bo_context* context)
             switch(context->output.data_width)
             {
                 case 1: return string_print_octal_1;
-                case 2: return string_print_octal_2;
-                case 4: return string_print_octal_4;
-                case 8: return string_print_octal_8;
+                case 2: return matches_endianness(context) ? string_print_octal_2 : string_print_octal_2_swapped;
+                case 4: return matches_endianness(context) ? string_print_octal_4 : string_print_octal_4_swapped;
+                case 8: return matches_endianness(context) ? string_print_octal_8 : string_print_octal_8_swapped;
                 case 16:
                     bo_notify_error(context, "TODO: OCTAL 16 not implemented");
                     return NULL;
@@ -260,8 +249,8 @@ static string_printer get_string_printer(bo_context* context)
                 case 2:
                     bo_notify_error(context, "TODO: FLOAT 2 not implemented");
                     return NULL;
-                case 4: return string_print_float_4;
-                case 8: return string_print_float_8;
+                case 4: return matches_float_endianness(context) ? string_print_float_4 : string_print_float_4_swapped;
+                case 8: return matches_float_endianness(context) ? string_print_float_8 : string_print_float_8_swapped;
                 case 16:
                     bo_notify_error(context, "TODO: FLOAT 16 not implemented");
                     return NULL;
@@ -277,10 +266,10 @@ static string_printer get_string_printer(bo_context* context)
             switch(context->output.data_width)
             {
                 case 1: return binary_print_1;
-                case 2: return context->output.endianness == BO_ENDIAN_LITTLE ? binary_print_2_le : binary_print_2_be;
-                case 4: return context->output.endianness == BO_ENDIAN_LITTLE ? binary_print_4_le : binary_print_4_be;
-                case 8: return context->output.endianness == BO_ENDIAN_LITTLE ? binary_print_8_le : binary_print_8_be;
-                case 16: return context->output.endianness == BO_ENDIAN_LITTLE ? binary_print_16_le : binary_print_16_be;
+                case 2: return matches_endianness(context) ? binary_print_2 : binary_print_2_swapped;
+                case 4: return matches_endianness(context) ? binary_print_4 : binary_print_4_swapped;
+                case 8: return matches_endianness(context) ? binary_print_8 : binary_print_8_swapped;
+                case 16: return matches_endianness(context) ? binary_print_16 : binary_print_16_swapped;
                 default:
                     bo_notify_error(context, "%d: invalid data width", context->output.data_width);
                     return NULL;
@@ -431,7 +420,7 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
             buffer_append_string(output_buffer, context->output.prefix);
         }
 
-        int bytes_written = string_print(src, buffer_get_position(output_buffer), context->output.text_width, context->output.endianness);
+        int bytes_written = string_print(src, buffer_get_position(output_buffer), context->output.text_width);
         if(bytes_written < 0)
         {
             bo_notify_error(context, "Error writing string value");
