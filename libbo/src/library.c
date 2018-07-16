@@ -81,7 +81,7 @@ void bo_notify_error(bo_context* context, const char* fmt, ...)
 // String Printers
 // ---------------
 
-static inline void copy_swapped(uint8_t* dst, uint8_t* src, int length)
+static inline void copy_swapped(uint8_t* dst, const uint8_t* src, int length)
 {
 	for(int i = 0; i < length; i++)
 	{
@@ -332,17 +332,6 @@ static int pad_to_width(uint8_t* buffer, int length, int data_width)
     return dangling_length;
 }
 
-// Note: This will run off the end of length to fill out to a multiple of data_width!
-static void swap_buffer_endianness(uint8_t* buffer, int length, int data_width)
-{
-    pad_to_width(buffer, length, data_width);
-    const uint8_t* end = buffer + length;
-    for(uint8_t* current = buffer; current < end; current += data_width)
-    {
-        swap_endianness(current, data_width);
-    }
-}
-
 static void clear_error_condition(bo_context* context)
 {
     context->is_error_condition = false;
@@ -483,6 +472,33 @@ static void add_bytes(bo_context* context, const uint8_t* ptr, int length)
     } while(length > 0);
 }
 
+static void add_bytes_swapped(bo_context* context, const uint8_t* ptr, int length, int width)
+{
+    if(buffer_is_high_water(&context->work_buffer))
+    {
+        flush_work_buffer(context, false);
+    }
+
+    // TODO: Don't run off the end of the source like this
+    pad_to_width((uint8_t*)ptr, length, width);
+
+    const uint8_t* end = ptr + length;
+    while(ptr < end)
+    {
+        copy_swapped(context->work_buffer.pos, ptr, width);
+        buffer_use_space(&context->work_buffer, width);
+        if(buffer_is_high_water(&context->work_buffer))
+        {
+            flush_work_buffer(context, false);
+        }
+        if(is_error_condition(context))
+        {
+            return;
+        }
+        ptr += width;
+    }
+}
+
 static void add_int(bo_context* context, uint64_t src_value)
 {
     switch(context->input.data_width)
@@ -594,7 +610,8 @@ void bo_on_bytes(bo_context* context, uint8_t* data, int length)
     LOG("On bytes: %d", length);
     if(context->input.data_width > 1 && context->input.endianness != BO_NATIVE_INT_ENDIANNESS)
     {
-        swap_buffer_endianness(data, length, context->input.data_width);
+        add_bytes_swapped(context, data, length, context->input.data_width);
+        return;
     }
     add_bytes(context, data, length);    
 }
