@@ -131,6 +131,26 @@ Determines how the text representation of a number is to be interpreted:
   * Decimal (d): IEEE 754 binary decimal (TODO)
   * Binary (B): Data is interpreted or output using its binary representation rather than text.
 
+##### Notes on the boolean type
+
+As the boolean type operates on sub-byte values, its behavior may seem surprising at first. In little endian systems, not only does byte 0 occur first in a word, but so does bit 0. Bo honors this bit ordering when printing. For example:
+
+    $ bo ob2b1 ih2b 6
+    0000000000000110
+    $ bo ob2l1 ih2l 6
+    0110000000000000
+
+Note, however, that when inputting textual representations of boolean values, they are ALWAYS read as big endian (same as with all other types), and then stored according to the input endianness:
+
+    $ bo ob2b1 ib2b 1011
+    0000000000001011
+    $ bo ob2l1 ib2l 1011
+    1101000000000000
+    $ bo ob2b1 ib2l 1011
+    0000101100000000
+    $ bo ob2l1 ib2b 1011
+    0000000011010000
+
 #### Data Width
 
 Determines how wide of a data field to store the number in:
@@ -285,7 +305,6 @@ Issues
   * IEEE754 decimal types are not yet implemented.
   * 128 bit values are not yet implemented.
   * 16-bit ieee754 floating point is not yet implemented.
-  * Boolean output is not yet implemented.
 
 
 

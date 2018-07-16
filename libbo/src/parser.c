@@ -787,6 +787,5 @@ char* bo_process(void* void_context, char* data, int data_length, bo_data_segmen
     {
         return NULL;
     }
-    LOG("done = %s", buffer_get_position(&context->src_buffer));
     return (char*)buffer_get_position(&context->src_buffer);
 }

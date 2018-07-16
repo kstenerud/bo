@@ -30,6 +30,7 @@ add_executable(libbo_test
                    src/input.cpp
                    src/config.cpp
                    src/span.cpp
+                   src/boolean.cpp
                )
 
 target_compile_features(libbo_test PRIVATE cxx_auto_type)

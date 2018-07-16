@@ -42,7 +42,7 @@
 #define WORK_BUFFER_OVERHEAD_SIZE 32
 
 // Use an overhead value large enough that the string printers won't blast past it in a single write.
-#define OUTPUT_BUFFER_OVERHEAD_SIZE 100
+#define OUTPUT_BUFFER_OVERHEAD_SIZE 200
 
 
 #define BO_NATIVE_INT_ENDIANNESS (((__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) * BO_ENDIAN_LITTLE) + \
@@ -138,6 +138,66 @@ DEFINE_INT_STRING_PRINTER_SWAPPED(octal, uint, 4, o)
 DEFINE_INT_STRING_PRINTER_SWAPPED(octal, uint, 8, lo)
 // TODO: octal-16
 
+static int print_boolean_be(uint8_t* src, uint8_t* dst, int data_width, int text_width)
+{
+    int bit_width = data_width * 8;
+    int total_width = (bit_width > text_width ? bit_width : text_width);
+    int diff_width = total_width - bit_width;
+    memset(dst, '0', bit_width);
+
+    uint8_t* src_ptr = src;
+    char* dst_ptr = (char*)dst + diff_width;
+
+    for(int bits_remaining = bit_width;bits_remaining > 0;)
+    {
+        int value = *src_ptr;
+        for(int i = 0; i < 8 && bits_remaining > 0; i++)
+        {
+            *dst_ptr++ = '0' + ((value >> (7-i)) & 1);
+            bits_remaining--;
+        }
+        src_ptr++;
+    }
+    return total_width;
+}
+
+static int print_boolean_le(uint8_t* src, uint8_t* dst, int data_width, int text_width)
+{
+    int bit_width = data_width * 8;
+    int total_width = (bit_width > text_width ? bit_width : text_width);
+    int diff_width = total_width - bit_width;
+    memset(dst, '0', bit_width);
+
+    uint8_t* src_ptr = src;
+    char* dst_ptr = (char*)dst + diff_width;
+
+    for(int bits_remaining = bit_width;bits_remaining > 0;)
+    {
+        int value = *src_ptr;
+        for(int i = 0; i < 8 && bits_remaining > 0; i++)
+        {
+            *dst_ptr++ = '0' + ((value >> i) & 1);
+            bits_remaining--;
+        }
+        src_ptr++;
+    }
+    return total_width;
+}
+#define DEFINE_BOOLEAN_STRING_PRINTER(DATA_WIDTH) \
+static int string_print_boolean_ ## DATA_WIDTH ## _be (uint8_t* src, uint8_t* dst, int text_width) \
+{ \
+    return print_boolean_be(src, dst, DATA_WIDTH, text_width); \
+} \
+static int string_print_boolean_ ## DATA_WIDTH ## _le (uint8_t* src, uint8_t* dst, int text_width) \
+{ \
+    return print_boolean_le(src, dst, DATA_WIDTH, text_width); \
+}
+DEFINE_BOOLEAN_STRING_PRINTER(1)
+DEFINE_BOOLEAN_STRING_PRINTER(2)
+DEFINE_BOOLEAN_STRING_PRINTER(4)
+DEFINE_BOOLEAN_STRING_PRINTER(8)
+DEFINE_BOOLEAN_STRING_PRINTER(16)
+
 #define DEFINE_FLOAT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
 static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width) \
 { \
@@ -185,6 +245,11 @@ bool matches_endianness(bo_context* context)
 bool matches_float_endianness(bo_context* context)
 {
     return context->output.endianness == BO_NATIVE_FLOAT_ENDIANNESS;
+}
+
+bool is_output_bigendian(bo_context* context)
+{
+    return context->output.endianness == BO_ENDIAN_BIG;
 }
 
 static string_printer get_string_printer(bo_context* context)
@@ -240,8 +305,19 @@ static string_printer get_string_printer(bo_context* context)
             }
         }
         case TYPE_BOOLEAN:
-            bo_notify_error(context, "TODO: BOOLEAN not implemented");
-            return NULL;
+        {
+            switch(context->output.data_width)
+            {
+                case 1: return is_output_bigendian(context) ? string_print_boolean_1_be : string_print_boolean_1_le;
+                case 2: return is_output_bigendian(context) ? string_print_boolean_2_be : string_print_boolean_2_le;
+                case 4: return is_output_bigendian(context) ? string_print_boolean_4_be : string_print_boolean_4_le;
+                case 8: return is_output_bigendian(context) ? string_print_boolean_8_be : string_print_boolean_8_le;
+                case 16: return is_output_bigendian(context) ? string_print_boolean_16_be : string_print_boolean_16_le;
+                default:
+                    bo_notify_error(context, "%d: invalid data width", context->output.data_width);
+                    return NULL;
+            }
+        }
         case TYPE_FLOAT:
         {
             switch(context->output.data_width)
@@ -333,6 +409,7 @@ static void flush_buffer_to_output(bo_context* context, bo_buffer* buffer)
 
 static void flush_output_buffer(bo_context* context)
 {
+    LOG("Flush output buffer");
     flush_buffer_to_output(context, &context->output_buffer);
 }
 
@@ -343,6 +420,7 @@ static void flush_work_buffer_binary(bo_context* context)
 
 static void flush_work_buffer(bo_context* context, bool is_complete_flush)
 {
+    LOG("Flush work buffer");
     if(!buffer_is_initialized(&context->work_buffer) || buffer_is_empty(&context->work_buffer))
     {
         return;

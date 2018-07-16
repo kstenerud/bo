@@ -38,6 +38,7 @@ extern "C" {
 
 
 #if BO_ENABLE_LOGGING
+#include <stdio.h>
 #define LOG(...) do {fprintf(stdout, "LOG: ");fprintf(stdout, __VA_ARGS__);fprintf(stdout, "\n");fflush(stdout);} while(0)
 #else
 #define LOG(FMT, ...)
