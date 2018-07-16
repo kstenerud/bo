@@ -34,6 +34,8 @@ static const char* g_version = "1.0.0";
 static const char g_usage[] =
 	"Usage: bo [options] command [command] ...\n"
 	"\n"
+	"The default is to read commands from cmdline arguments and print output to stdout.\n"
+	"\n"
 	"Options:\n"
 	"    -i [filename]: Read commands/data from a file (use \"-\" to read from stdin).\n"
 	"    -o [filename]: Write output to a file (use \"-\" to write to stdout).\n"
