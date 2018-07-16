@@ -311,27 +311,6 @@ static int trim_length_to_object_boundary(int length, int object_size_in_bytes)
     return length - (length % object_size_in_bytes);
 }
 
-static inline void swap_endianness(uint8_t* dst, int length)
-{
-    const int half_length = length / 2;
-    for(int i = 0; i < half_length; i++)
-    {
-        const int ch = dst[i];
-        dst[i] = dst[length - i - 1];
-        dst[length - i - 1] = ch;
-    }
-}
-
-static int pad_to_width(uint8_t* buffer, int length, int data_width)
-{
-    const int dangling_length = (data_width - length) % data_width;
-    if(dangling_length > 0)
-    {
-        memset(buffer+length, 0, dangling_length);
-    }
-    return dangling_length;
-}
-
 static void clear_error_condition(bo_context* context)
 {
     context->is_error_condition = false;
@@ -472,18 +451,16 @@ static void add_bytes(bo_context* context, const uint8_t* ptr, int length)
     } while(length > 0);
 }
 
-static void add_bytes_swapped(bo_context* context, const uint8_t* ptr, int length, int width)
+static void add_bytes_swapped(bo_context* context, const uint8_t* ptr, int length, const int width)
 {
     if(buffer_is_high_water(&context->work_buffer))
     {
         flush_work_buffer(context, false);
     }
 
-    // TODO: Don't run off the end of the source like this
-    pad_to_width((uint8_t*)ptr, length, width);
-
-    const uint8_t* end = ptr + length;
-    while(ptr < end)
+    const int remainder = length % width;
+    const uint8_t* early_end = ptr + length - remainder;
+    while(ptr < early_end)
     {
         copy_swapped(context->work_buffer.pos, ptr, width);
         buffer_use_space(&context->work_buffer, width);
@@ -496,6 +473,15 @@ static void add_bytes_swapped(bo_context* context, const uint8_t* ptr, int lengt
             return;
         }
         ptr += width;
+    }
+
+    if(remainder > 0)
+    {
+        uint8_t bytes[width];
+        memset(bytes, 0, sizeof(bytes));
+        memcpy(bytes, ptr, remainder);
+        copy_swapped(context->work_buffer.pos, bytes, width);
+        buffer_use_space(&context->work_buffer, width);
     }
 }
 
