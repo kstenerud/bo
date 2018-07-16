@@ -94,7 +94,7 @@ bool bo_flush_and_destroy_context(void* context);
  * Remember to call bo_flush_and_destroy_context() when all processing is finished.
  *
  * @param context A context created by bo_new_context().
- * @param data The data to process.
+ * @param data The data to process. DATA WILL BE MODIFIED DURING PARSE!
  * @param data_length The length of the data.
  * @param data_segment_type Whether this is the middle or the end of a stream of data.
  * @return A pointer to one past the last byte processed.
