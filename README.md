@@ -53,6 +53,7 @@ Usage
 
   * -i [filename]: Read commands/data from a file.
   * -o [filename]: Write output to a file.
+  * -n Write a newline after processing is complete.
   * -h Print help and exit.
   * -v Print version and exit.
 
