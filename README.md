@@ -25,6 +25,9 @@ Bo reads data and interprets it according to its current input mode, converting 
     $ bo -n oi8b ih8b 7fffffffffffffff
     9223372036854775807
 
+    $ bo -n ob8b ih8b ffe846134453a8c2
+    1111111111101000010001100001001101000100010100111010100011000010
+
 
 #### Examine part of a memory dump (faked in this case) as an array of 32-bit floats.
 
