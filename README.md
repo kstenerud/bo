@@ -138,20 +138,20 @@ Determines how the text representation of a number is to be interpreted:
 
 As the boolean type operates on sub-byte values, its behavior may seem surprising at first. In little endian systems, not only does byte 0 occur first in a word, but so does bit 0. Bo honors this bit ordering when printing. For example:
 
-    $ bo ob2b1 ih2b 6
+    $ bo ob2b ih2b 6
     0000000000000110
-    $ bo ob2l1 ih2l 6
+    $ bo ob2l ih2l 6
     0110000000000000
 
 Note, however, that when inputting textual representations of boolean values, they are ALWAYS read as big endian (same as with all other types), and then stored according to the input endianness:
 
-    $ bo ob2b1 ib2b 1011
+    $ bo ob2b ib2b 1011
     0000000000001011
-    $ bo ob2l1 ib2l 1011
+    $ bo ob2l ib2l 1011
     1101000000000000
-    $ bo ob2b1 ib2l 1011
+    $ bo ob2b ib2l 1011
     0000101100000000
-    $ bo ob2l1 ib2b 1011
+    $ bo ob2l ib2b 1011
     0000000011010000
 
 #### Data Width
@@ -185,7 +185,7 @@ For floating point types, zeroes are appended until the fractional portion has t
   * `ih2l`: Input type hexadecimal encoded integer, 2 bytes per value, little endian
   * `io4b`: Input type octal encoded integer, 4 bytes per value, big endian
   * `if4l`: Input type floating point, 4 bytes per value, little endian
-  * `oi4l1`: Interpret data as 4-byte integers and output in base 10 with minimum 1 digit (i.e. no zero padding)
+  * `oi4l`: Output as 4-byte integers in base 10 with default minimum 1 digit (i.e. no zero padding)
   * `of8l10`: Interpret data as 8-byte floats and output with 10 digits after the decimal point.
 
 
