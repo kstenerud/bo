@@ -2,6 +2,6 @@
 
 TEST(BO_String, string)
 {
-    assert_conversion("os ih1 \"Testing\" 01 02 \"ß\" 5", "Testing\\x01\\x02ß\\x05");
+    assert_conversion("os ih1 \"Testing\" 11 02 \"ß\" 5", "Testing\\x11\\x2ß\\x5");
     assert_conversion("os is \"\\101\\x42\\u263a\"", "AB☺");
 }

@@ -304,11 +304,18 @@ static int string_print_string(uint8_t* src, uint8_t* dst, int* output_width)
                 *output_width = utf8_length;
                 return utf8_length;
             }
-            dst[0] = '\\';
-            dst[1] = 'x';
-            dst[2] = g_hex_values[ch>>4];
-            dst[3] = g_hex_values[ch&15];
-            *output_width = 4;
+            *dst++ = '\\';
+            *dst++ = 'x';
+            if(ch > 15)
+            {
+                *dst++ = g_hex_values[ch>>4];
+                *output_width = 4;
+            }
+            else
+            {
+                *output_width = 3;
+            }
+            *dst++ = g_hex_values[ch&15];
             return 1;
         }
     }
