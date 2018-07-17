@@ -57,6 +57,7 @@ static const char g_usage[] =
 	"    b: Integer in base 2\n"
 	"    f: IEEE 754 binary floating point\n"
 	"    d: IEEE 754 binary decimal\n"
+	"    s: C-style string (including escaping). This type does not use widths or endianness.\n"
 	"    B: Data is interpreted or output using its binary representation rather than text.\n"
 	"\n"
 	"Data Widths:\n"
