@@ -83,7 +83,7 @@ Bo reads a series of whitespace separated commands and data, and uses them to in
   * i{type}{data width}{endianness}: Specify how to interpret input data
   * o{type}{data width}{endianness}[print width]: Specify how to re-interpret data and how to print it
   * p{string}: Specify a prefix to prepend to each datum output
-  * s{string}: Specify a suffix to append to each datum object (except for the last object)
+  * s{string}: Specify a suffix to append to each datum output (except for the last object)
   * P{type}: Specify a preset for prefix and suffix.
 
 
@@ -170,6 +170,8 @@ Determines in which order bits and bytes are encoded:
 
   * Little Endian (l): Lowest bit and byte comes first
   * Big Endian (b): Highest bit and byte comes first
+
+The endianness field is optional when data width is 1, EXCEPT for output type boolean.
 
 #### Print Width
 

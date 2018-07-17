@@ -639,7 +639,7 @@ static void on_output_type(bo_context* context)
     bo_endianness endianness = BO_ENDIAN_NONE;
     unsigned int print_width = 1;
 
-    if(data_width > 1 || token_length > offset)
+    if(data_width > 1 || data_type == TYPE_BOOLEAN || token_length > offset)
     {
         endianness = extract_endianness(context, token, offset);
         if(!should_continue_parsing(context)) return;
