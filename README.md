@@ -61,7 +61,7 @@ Usage
 Specifying "-" as the filename will cause bo to use stdin (when used with -i) or stdout (when used with -o).
 By default, bo won't read from any files, and will write output to stdout.
 
-Commands may be passed in as command line arguments and as files via the -i switch. You may specify as many -i switches as you like. Bo will first parse all command line arguments, and then all files specified via -i switches.
+Commands may be passed in as command line arguments, and as files via the -i switch. You may specify as many -i switches as you like. Bo will first parse all command line arguments, and then all files specified via -i switches.
 
 
 
@@ -93,12 +93,10 @@ Data is interpreted according to the input format, stored in an intermediary buf
 
 Strings are copied as bytes to the intermediary binary buffer, to be reinterpreted later by the output format.
 
-
 For example, data input as hex encoded little endian 16-bit integers (ih2l), and then re-interpreted as hex encoded little endian 32-bit integers (oh4l8) with a space (s\" \") suffix would look like:
 
     input:  1234 5678 9abc 5432
     output: 78563412 3254bc9a
-
 
 Before processing any data, both input and output types must be specified via `input type` and `output type` commands. You may later change the input or output types again via commands, even after interpreting data. Any time the output type is changed, all buffers are flushed.
 
@@ -109,7 +107,7 @@ Before processing any data, both input and output types must be specified via `i
 The input specifier command consists of 3 parts:
 
   * Type: How to interpret incoming data (integer, float, decimal, binary, etc)
-  * Data Width: What width of the numeric type to use in bytes (1, 2, 4, 8, 16)
+  * Data Width: The width of each datum in bytes (1, 2, 4, 8, 16)
   * Endianness: What endianness to use when storing data (little or big endian)
 
 
@@ -117,14 +115,14 @@ The input specifier command consists of 3 parts:
 
 The output specifier command consists of 4 parts:
 
-  * Type: How to interpret the binary data for printing (integer, float, decimal, string, etc)
-  * Data Width: What width of the numeric type to read in bytes (1, 2, 4, 8, 16)
-  * Endianness: What endianness to use when reading data (little or big endian)
+  * Type: How to format the data for printing (integer, float, decimal, string, etc)
+  * Data Width: The width of each datum in bytes (1, 2, 4, 8, 16)
+  * Endianness: What endianness to use when presenting data (little or big endian)
   * Print Width: Minimum number of digits to use when printing numeric values (optional).
 
-#### Numeric Type
+#### Type
 
-Determines how the text representation of a number is to be interpreted:
+Determines the type to be used for interpreting incoming data, or presenting outgoing data.
 
   * Integer (i): Integer in base 10
   * Hexadecimal (h): Integer in base 16
@@ -157,7 +155,7 @@ Note, however, that when inputting textual representations of boolean values, th
 
 #### Data Width
 
-Determines how wide of a data field to store the number in:
+Determines how wide of a data field to store the data in:
 
   * 1 bytes (8-bit)
   * 2 bytes (16-bit)
