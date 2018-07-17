@@ -81,7 +81,7 @@ Bo parses whitespace separated strings and interprets them as commands. The foll
 Bo reads a series of whitespace separated commands and data, and uses them to interpret input data and convert it for output. The commands are as follows:
 
   * i{type}{data width}{endianness}: Specify how to interpret input data
-  * o{type}{data width}{endianness}{print width}: Specify how to re-interpret data and how to print it
+  * o{type}{data width}{endianness}[print width]: Specify how to re-interpret data and how to print it
   * p{string}: Specify a prefix to prepend to each datum output
   * s{string}: Specify a suffix to append to each datum object (except for the last object)
   * P{type}: Specify a preset for prefix and suffix.
@@ -120,7 +120,7 @@ The output specifier command consists of 4 parts:
   * Numeric Type: How to interpret the binary represenation of a number (integer, float, decimal, etc)
   * Data Width: What width of the numeric type to read in bytes (1, 2, 4, 8, 16)
   * Endianness: What endianness to use when reading data (little or big endian)
-  * Print Width: Minimum number of digits to use when printing numeric values.
+  * Print Width: Minimum number of digits to use when printing numeric values (optional).
 
 #### Numeric Type
 
@@ -168,12 +168,12 @@ Determines how wide of a data field to store the number in:
 
 Determines in which order bits and bytes are encoded:
 
-  * Little Endian: Lowest bit and byte comes first
-  * Big Endian: Highest bit and byte comes first
+  * Little Endian (l): Lowest bit and byte comes first
+  * Big Endian (b): Highest bit and byte comes first
 
 #### Print Width
 
-Specifies the minimum number of digits to print when outputting numeric values.
+Specifies the minimum number of digits to print when outputting numeric values. This is an optional field, and defaults to 1.
 
 For integer types, zeroes are prepended until the printed value has the specified number of digits.
 For floating point types, zeroes are appended until the fractional portion has the specified number of digits. The whole number portion is not used and has no effect in this calculation.

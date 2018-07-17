@@ -645,13 +645,8 @@ static void on_output_type(bo_context* context)
         if(!should_continue_parsing(context)) return;
         offset += 1;
 
-        if(data_type != TYPE_BINARY)
+        if(data_type != TYPE_BINARY && token + offset < buffer_get_end(&context->src_buffer))
         {
-            if(token + offset >= buffer_get_end(&context->src_buffer))
-            {
-                bo_notify_error(context, "%s: offset %d: Missing print width", token, offset);
-                return;
-            }
             if(!is_decimal_character(token[offset]))
             {
                 bo_notify_error(context, "%s: offset %d: Not a valid print width", token, offset);
