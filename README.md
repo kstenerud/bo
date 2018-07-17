@@ -233,7 +233,7 @@ Read binary file.bin and print out in "C" format as bytes:
 
 Read 3 numbers as big endian 32-bit floats and store them as binary to file.bin:
 
-    bo -o file.bin oB if4b "1.1 -400000 89.45005"
+    bo -o file.bin oB1 if4b "1.1 -400000 89.45005"
 
   * Set output type to binary.
   * Set input type to floating point, 4 bytes per value, big endian.
