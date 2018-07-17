@@ -529,7 +529,7 @@ static void on_output_type(bo_context* context)
             if(!should_continue_parsing(context)) return;
             offset += 1;
 
-            if(data_type != TYPE_BINARY && token + offset < buffer_get_end(&context->src_buffer))
+            if(data_type != TYPE_BINARY && token + offset < end)
             {
                 if(!is_decimal_character(token[offset]))
                 {
