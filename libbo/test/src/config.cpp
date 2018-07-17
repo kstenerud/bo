@@ -25,7 +25,7 @@ TEST(BO_Config, output_config)
     assert_failed_conversion(1000, "o");
     assert_failed_conversion(1000, "oo");
     assert_failed_conversion(1000, "oo8");
-    assert_failed_conversion(1000, "oo8l");
+    assert_conversion("oo8l", "");
     assert_conversion("oo8l1", "");
 
     assert_failed_conversion(1000, "oB2");
