@@ -29,7 +29,7 @@ Bo reads data and interprets it according to its current input mode, converting 
     1111111111101000010001100001001101000100010100111010100011000010
 
 
-#### Examine part of a memory dump (faked in this case) as an array of 32-bit floats.
+#### Examine part of a memory dump (faked in this case) as an array of 32-bit big-endian floats at precision 3.
 
     $ bo oB1 if4b 1.1 8.5 305.125 >memory_dump.bin
 
