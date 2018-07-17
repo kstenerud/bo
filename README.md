@@ -3,18 +3,67 @@ BO (Binary Output)
 
 The Swiss army knife of data examination and manipulation.
 
-
-How it Works
-------------
+This is the tool to use when you need to visualize or convert data in different formats.
 
 Bo reads data and interprets it according to its current input mode, converting it to a binary format. It then re-interprets the binary data according to the output mode and writes it to output. This allows you to do things such as:
 
-  * Read four 8-bit values and reinterpret them as a 32-bit values.
-  * Input a 64-bit integer and reinterpret as eight 8-bit values.
-  * Build up a binary packet by hand and then print it out to see what it looks like encoded.
-  * Read binary data and reinterpret it as any type with any width, using any endianness.
-  * Output data in "C-friendly" encoding (0xff, 0xff, ...).
-  * Convert binary data endianness.
+
+#### See the per-byte layout of a larger integer in big or little endian format.
+
+    $ bo -n oh1 Ps ih4b 12345678
+    12 34 56 78
+
+    $ bo -n oh1 Ps ih4l 12345678
+    78 56 34 12
+
+
+#### Convert integers between bases.
+
+    $ bo -n oh8b16 Pc ii8b 1000000
+    0x00000000000f4240
+
+    $ bo -n oi8b ih8b 7fffffffffffffff
+    9223372036854775807
+
+
+#### Examine part of a memory dump (faked in this case) as an array of 32-bit floats.
+
+    $ bo oB1 if4b 1.1 8.5 305.125 >memory_dump.bin
+
+    $ bo -n -i memory_dump.bin of4b3 Pc iB1
+    1.100, 8.500, 305.125
+
+
+#### Convert the endianness of a data dump.
+
+    $ bo oB1 ih2b 0123 4567 89ab >data.bin
+
+    $ bo -n -i data.bin oh2l Pc iB1
+    0x2301, 0x6745, 0xab89
+
+
+#### Convert text files to C-friendly strings.
+
+example.txt:
+
+    This is a test.
+    There are tabs  between these words.
+    ¡8-Ⅎ⊥∩ sʇɹoddns osʃɐ ʇI
+
+    $ bo -n -i example.txt os iB1
+    This is a test.\nThere are tabs\tbetween\tthese\twords.\n¡8-Ⅎ⊥∩ sʇɹoddns osʃɐ ʇI
+
+
+#### Reinterpret one type as another at the binary level (for whatever reason).
+
+    $ bo -n oi4b if4b 1.5
+    1069547520
+
+
+#### Build up test data for low level code.
+
+    $ bo -n oh1l2 Pc if4b 1.5 1.25 ii2b 1000 2000 3000 ih1 ff fe 7a ib1 10001011
+    0x3f, 0xc0, 0x00, 0x00, 0x3f, 0xa0, 0x00, 0x00, 0x03, 0xe8, 0x07, 0xd0, 0x0b, 0xb8, 0xff, 0xfe, 0x7a, 0x8b
 
 
 
