@@ -89,7 +89,16 @@ static inline void copy_swapped(uint8_t* dst, const uint8_t* src, int length)
 	}
 }
 
-typedef int (*string_printer)(uint8_t* src, uint8_t* dst, int text_width);
+/**
+ * String printer.
+ * Reads data from the source and writes to the destination.
+ *
+ * @param src Pointer to the source data.
+ * @param dst Pointer to the destination buffer.
+ * @param output_width in: Minimum bytes to print. out: Number of bytes written.
+ * @return Number of bytes read.
+ */
+typedef int (*string_printer)(uint8_t* src, uint8_t* dst, int* output_width);
 
 // Force the compiler to generate handler code for unaligned accesses.
 #define DEFINE_SAFE_STRUCT(NAME, TYPE) typedef struct __attribute__((__packed__)) {TYPE contents;} NAME
@@ -109,18 +118,19 @@ DEFINE_SAFE_STRUCT(safe_decimal_8,  _Decimal64);
 DEFINE_SAFE_STRUCT(safe_decimal_16, _Decimal128);
 
 #define DEFINE_INT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int* output_width) \
 { \
-	return sprintf((char*)dst, "%0*" #FORMAT, text_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+	*output_width = sprintf((char*)dst, "%0*" #FORMAT, *output_width, ((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+    return DATA_WIDTH; \
 } \
 
 #define DEFINE_INT_STRING_PRINTER_SWAPPED(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
 DEFINE_INT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _swapped (uint8_t* src, uint8_t* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _swapped (uint8_t* src, uint8_t* dst, int* output_width) \
 { \
 	uint8_t buffer[DATA_WIDTH]; \
 	copy_swapped(buffer, src, DATA_WIDTH); \
-	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (buffer, dst, text_width); \
+	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (buffer, dst, output_width); \
 }
 DEFINE_INT_STRING_PRINTER(int, int, 1, d)
 DEFINE_INT_STRING_PRINTER_SWAPPED(int, int, 2, d)
@@ -184,13 +194,15 @@ static int print_boolean_le(uint8_t* src, uint8_t* dst, int data_width, int text
     return total_width;
 }
 #define DEFINE_BOOLEAN_STRING_PRINTER(DATA_WIDTH) \
-static int string_print_boolean_ ## DATA_WIDTH ## _be (uint8_t* src, uint8_t* dst, int text_width) \
+static int string_print_boolean_ ## DATA_WIDTH ## _be (uint8_t* src, uint8_t* dst, int* output_width) \
 { \
-    return print_boolean_be(src, dst, DATA_WIDTH, text_width); \
+    *output_width = print_boolean_be(src, dst, DATA_WIDTH, *output_width); \
+    return DATA_WIDTH; \
 } \
-static int string_print_boolean_ ## DATA_WIDTH ## _le (uint8_t* src, uint8_t* dst, int text_width) \
+static int string_print_boolean_ ## DATA_WIDTH ## _le (uint8_t* src, uint8_t* dst, int* output_width) \
 { \
-    return print_boolean_le(src, dst, DATA_WIDTH, text_width); \
+    *output_width = print_boolean_le(src, dst, DATA_WIDTH, *output_width); \
+    return DATA_WIDTH; \
 }
 DEFINE_BOOLEAN_STRING_PRINTER(1)
 DEFINE_BOOLEAN_STRING_PRINTER(2)
@@ -199,15 +211,16 @@ DEFINE_BOOLEAN_STRING_PRINTER(8)
 DEFINE_BOOLEAN_STRING_PRINTER(16)
 
 #define DEFINE_FLOAT_STRING_PRINTER(NAMED_TYPE, REAL_TYPE, DATA_WIDTH, FORMAT) \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int* output_width) \
 { \
-	return sprintf((char*)dst, "%.*" #FORMAT, text_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+	*output_width = sprintf((char*)dst, "%.*" #FORMAT, *output_width, (double)((safe_ ## REAL_TYPE ## _ ## DATA_WIDTH *)src)->contents); \
+    return DATA_WIDTH; \
 } \
-static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _swapped (uint8_t* src, uint8_t* dst, int text_width) \
+static int string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH ## _swapped (uint8_t* src, uint8_t* dst, int* output_width) \
 { \
 	uint8_t buffer[DATA_WIDTH]; \
 	copy_swapped(buffer, src, DATA_WIDTH); \
-	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (buffer, dst, text_width); \
+	return string_print_ ## NAMED_TYPE ## _ ## DATA_WIDTH (buffer, dst, output_width); \
 }
 // TODO: float-2
 DEFINE_FLOAT_STRING_PRINTER(float, float, 4, f)
@@ -217,24 +230,88 @@ DEFINE_FLOAT_STRING_PRINTER(float, float, 8, f)
 // TODO: decimal-16
 
 #define DEFINE_BINARY_PRINTER(DATA_WIDTH) \
-static int binary_print_ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width) \
+static int binary_print_ ## DATA_WIDTH (uint8_t* src, uint8_t* dst, int* output_width) \
 { \
     memcpy(dst, src, DATA_WIDTH); \
+    *output_width = DATA_WIDTH; \
     return DATA_WIDTH; \
 } \
-static int binary_print_ ## DATA_WIDTH ## _swapped(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width) \
+static int binary_print_ ## DATA_WIDTH ## _swapped(uint8_t* src, uint8_t* dst, int* output_width) \
 { \
     copy_swapped(dst, src, DATA_WIDTH); \
+    *output_width = DATA_WIDTH; \
     return DATA_WIDTH; \
 }
 DEFINE_BINARY_PRINTER(2)
 DEFINE_BINARY_PRINTER(4)
 DEFINE_BINARY_PRINTER(8)
 DEFINE_BINARY_PRINTER(16)
-static int binary_print_1(uint8_t* src, uint8_t* dst, __attribute__ ((unused)) int text_width)
+static int binary_print_1(uint8_t* src, uint8_t* dst, int* output_width)
 {
     *dst = *src;
+    *output_width = 1;
     return 1;
+}
+
+
+static const char g_hex_values[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
+static int get_utf8_length(uint8_t ch)
+{
+    if((ch >> 5) == 0x06) return 2;
+    if((ch >> 4) == 0x0e) return 3;
+    if((ch >> 3) == 0x1e) return 4;
+    return 0;
+}
+
+static int string_print_string(uint8_t* src, uint8_t* dst, int* output_width)
+{
+#define CASE_ESCAPE(VALUE, ESCAPED) \
+    case VALUE: \
+        dst[0] = '\\'; \
+        dst[1] = ESCAPED; \
+        *output_width = 2; \
+        return 1
+
+    uint8_t ch = *src;
+    switch(ch)
+    {
+        CASE_ESCAPE(0x07, 'a');
+        CASE_ESCAPE(0x08, 'b');
+        CASE_ESCAPE(0x09, 't');
+        CASE_ESCAPE(0x0a, 'n');
+        CASE_ESCAPE(0x0b, 'v');
+        CASE_ESCAPE(0x0c, 'f');
+        CASE_ESCAPE(0x0d, 'r');
+        CASE_ESCAPE('\\', '\\');
+        CASE_ESCAPE('\"', '\"');
+        CASE_ESCAPE('?', '?');
+        default:
+        {
+            if(ch >= 0x20 && ch < 0x7f)
+            {
+                *dst = *src;
+                *output_width = 1;
+                return 1;
+            }
+            int utf8_length = get_utf8_length(ch);
+            if(utf8_length > 0)
+            {
+                for(int i = 0; i < utf8_length; i++)
+                {
+                    *dst++ = *src++;
+                }
+                *output_width = utf8_length;
+                return utf8_length;
+            }
+            dst[0] = '\\';
+            dst[1] = 'x';
+            dst[2] = g_hex_values[ch>>4];
+            dst[3] = g_hex_values[ch&15];
+            *output_width = 4;
+            return 1;
+        }
+    }
 }
 
 bool matches_endianness(bo_context* context)
@@ -351,7 +428,7 @@ static string_printer get_string_printer(bo_context* context)
                     return NULL;
             }
         case TYPE_STRING:
-            bo_notify_error(context, "\"String\" is not a valid output format");
+            return string_print_string;
         case TYPE_NONE:
             bo_notify_error(context, "Must set output data type before passing data");
             return NULL;
@@ -374,9 +451,9 @@ static inline bool is_nonempty_string(const char* const string)
 
 static inline bool check_can_input_numbers(bo_context* context, const uint8_t* string_value)
 {
-    if(context->input.data_type == TYPE_NONE)
+    if(context->input.data_type == TYPE_NONE || context->input.data_type == TYPE_STRING)
     {
-        bo_notify_error(context, "%s: Must set input type before adding numbers", (const char*)string_value);
+        bo_notify_error(context, "%s: Must set input type to numeric before adding numbers", (const char*)string_value);
         return false;
     }
     return true;
@@ -459,20 +536,21 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
     uint8_t* const start = buffer_get_start(work_buffer);
     uint8_t* const end = start + work_length;
 
-    for(uint8_t* src = start; src < end; src += bytes_per_entry)
+    for(uint8_t* src = start; src < end;)
     {
         if(has_prefix)
         {
             buffer_append_string(output_buffer, context->output.prefix);
         }
 
-        int bytes_written = string_print(src, buffer_get_position(output_buffer), context->output.text_width);
-        if(bytes_written < 0)
+        int output_width = context->output.text_width;
+        int bytes_read = string_print(src, buffer_get_position(output_buffer), &output_width);
+        if(output_width < 0)
         {
-            bo_notify_error(context, "Error writing string value");
+            bo_notify_error(context, "Error writing data");
             return;
         }
-        buffer_use_space(output_buffer, bytes_written);
+        buffer_use_space(output_buffer, output_width);
 
         if(has_suffix)
         {
@@ -491,6 +569,7 @@ static void flush_work_buffer(bo_context* context, bool is_complete_flush)
                 return;
             }
         }
+        src += bytes_read;
     }
     buffer_clear(work_buffer);
 }

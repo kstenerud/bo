@@ -108,7 +108,7 @@ Before processing any data, both input and output types must be specified via `i
 
 The input specifier command consists of 3 parts:
 
-  * Numeric Type: How to interpret the text represenation of a number (integer, float, decimal, etc)
+  * Type: How to interpret incoming data (integer, float, decimal, binary, etc)
   * Data Width: What width of the numeric type to use in bytes (1, 2, 4, 8, 16)
   * Endianness: What endianness to use when storing data (little or big endian)
 
@@ -117,7 +117,7 @@ The input specifier command consists of 3 parts:
 
 The output specifier command consists of 4 parts:
 
-  * Numeric Type: How to interpret the binary represenation of a number (integer, float, decimal, etc)
+  * Type: How to interpret the binary data for printing (integer, float, decimal, string, etc)
   * Data Width: What width of the numeric type to read in bytes (1, 2, 4, 8, 16)
   * Endianness: What endianness to use when reading data (little or big endian)
   * Print Width: Minimum number of digits to use when printing numeric values (optional).
@@ -132,6 +132,7 @@ Determines how the text representation of a number is to be interpreted:
   * Boolean (b): Integer in base 2
   * Float (f): IEEE 754 binary floating point
   * Decimal (d): IEEE 754 binary decimal (TODO)
+  * String (s): String, with c-style encoding for escaped chars (tab, newline, hex, etc).
   * Binary (B): Data is interpreted or output using its binary representation rather than text.
 
 ##### Notes on the boolean type

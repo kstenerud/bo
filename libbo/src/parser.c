@@ -469,6 +469,22 @@ static uint8_t* parse_string(bo_context* context, int offset)
                         *write_pos++ = (uint8_t)strtoul((char*)number_buffer, NULL, 16);
                         break;
                     }
+                    case 'x':
+                    {
+                        if(remaining_bytes < 3)
+                        {
+                            return handle_end_of_data(context, escape_pos, "Unterminated hex escape sequence");
+                        }
+                        if(!is_hex_character(read_pos[1]) || !is_hex_character(read_pos[2]))
+                        {
+                            bo_notify_error(context, "Invalid hex escape sequence");
+                            return NULL;
+                        }
+                        uint8_t number_buffer[3] = {read_pos[1], read_pos[2], 0};
+                        read_pos += 2;
+                        *write_pos++ = (uint8_t)strtoul((char*)number_buffer, NULL, 16);
+                        break;
+                    }
                     case 'u':
                     {
                         if(remaining_bytes < 5)
