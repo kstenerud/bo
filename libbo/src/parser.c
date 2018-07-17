@@ -602,15 +602,20 @@ static void on_input_type(bo_context* context)
     if(!should_continue_parsing(context)) return;
     offset += 1;
 
-    int data_width = extract_data_width(context, token, offset);
-    if(!should_continue_parsing(context)) return;
-    offset += data_width > 8 ? 2 : 1;
-
+    int data_width = 1;
     bo_endianness endianness = BO_ENDIAN_NONE;
-    if(data_width > 1)
+
+    if(data_type != TYPE_STRING)
     {
-        endianness = extract_endianness(context, token, offset);
+        data_width = extract_data_width(context, token, offset);
         if(!should_continue_parsing(context)) return;
+        offset += data_width > 8 ? 2 : 1;
+
+        if(data_width > 1)
+        {
+            endianness = extract_endianness(context, token, offset);
+            if(!should_continue_parsing(context)) return;
+        }
     }
 
     if(!verify_data_width(context, data_type, data_width)) return;
@@ -632,28 +637,32 @@ static void on_output_type(bo_context* context)
     if(!should_continue_parsing(context)) return;
     offset += 1;
 
-    int data_width = extract_data_width(context, token, offset);
-    if(!should_continue_parsing(context)) return;
-    offset += data_width > 8 ? 2 : 1;
-
+    int data_width = 1;
+    int print_width = 1;
     bo_endianness endianness = BO_ENDIAN_NONE;
-    unsigned int print_width = 1;
 
-    if(data_width > 1 || data_type == TYPE_BOOLEAN || token_length > offset)
+    if(data_type != TYPE_STRING)
     {
-        endianness = extract_endianness(context, token, offset);
+        data_width = extract_data_width(context, token, offset);
         if(!should_continue_parsing(context)) return;
-        offset += 1;
+        offset += data_width > 8 ? 2 : 1;
 
-        if(data_type != TYPE_BINARY && token + offset < buffer_get_end(&context->src_buffer))
+        if(data_width > 1 || data_type == TYPE_BOOLEAN || token_length > offset)
         {
-            if(!is_decimal_character(token[offset]))
-            {
-                bo_notify_error(context, "%s: offset %d: Not a valid print width", token, offset);
-                return;
-            }
+            endianness = extract_endianness(context, token, offset);
+            if(!should_continue_parsing(context)) return;
+            offset += 1;
 
-            print_width = strtoul((char*)token + offset, NULL, 10);
+            if(data_type != TYPE_BINARY && token + offset < buffer_get_end(&context->src_buffer))
+            {
+                if(!is_decimal_character(token[offset]))
+                {
+                    bo_notify_error(context, "%s: offset %d: Not a valid print width", token, offset);
+                    return;
+                }
+
+                print_width = strtoul((char*)token + offset, NULL, 10);
+            }
         }
     }
 
