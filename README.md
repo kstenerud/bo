@@ -284,7 +284,7 @@ Convert the endianness of a binary file containing 16-bit values, using stdin an
 
 Convert the string "Testing" to its hex representation using "space" preset:
 
-    bo oh1b2 Ps ih1b "\"Testing\""
+    bo oh1b2 Ps ih1 "\"Testing\""
 
 output: 54 65 73 74 69 6e 67
 
