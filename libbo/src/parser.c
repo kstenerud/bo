@@ -33,28 +33,28 @@
 
 static const char* g_data_type_name[] =
 {
-    "none",
-    "binary",
-    "int",
-    "hex",
-    "octal",
-    "boolean",
-    "float",
-    "decimal",
-    "string",
+    [TYPE_NONE]    = "none",
+    [TYPE_BINARY]  = "binary",
+    [TYPE_INT]     = "int",
+    [TYPE_HEX]     = "hex",
+    [TYPE_OCTAL]   = "octal",
+    [TYPE_BOOLEAN] = "boolean",
+    [TYPE_FLOAT]   = "float",
+    [TYPE_DECIMAL] = "decimal",
+    [TYPE_STRING]  = "string",
 };
 
 static int g_min_data_widths[] =
 {
-    0,
-    1, // Binary
-    1, // Int
-    1, // Hex
-    1, // Octal
-    1, // Boolean
-    2, // Float
-    4, // Decimal
-    1, // String
+    [TYPE_NONE]    = 0,
+    [TYPE_BINARY]  = 1,
+    [TYPE_INT]     = 1,
+    [TYPE_HEX]     = 1,
+    [TYPE_OCTAL]   = 1,
+    [TYPE_BOOLEAN] = 1,
+    [TYPE_FLOAT]   = 2,
+    [TYPE_DECIMAL] = 4,
+    [TYPE_STRING]  = 1,
 };
 
 static inline bool should_continue_parsing(bo_context* context)
