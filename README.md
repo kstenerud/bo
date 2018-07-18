@@ -31,7 +31,16 @@ Bo reads data and interprets it according to its current input mode, converting 
 
 #### Examine part of a memory dump (faked in this case) as an array of 32-bit big-endian floats at precision 3.
 
+Fake a 12-byte memory dump as an example:
+
     $ bo oB1 if4b 1.1 8.5 305.125 >memory_dump.bin
+
+What it looks like in memory:
+
+    $ bo -n -i memory_dump.bin oh1b2 Pc iB1
+    0x3f, 0x8c, 0xcc, 0xcd, 0x41, 0x08, 0x00, 0x00, 0x43, 0x98, 0x90, 0x00
+
+What it looks like interpreted as floats:
 
     $ bo -n -i memory_dump.bin of4b3 Pc iB1
     1.100, 8.500, 305.125
