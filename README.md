@@ -10,12 +10,12 @@ Bo reads data and interprets it according to its current input mode, converting 
 **Note for examples**: i(whatever) sets input type, o(whatever) sets output type, P(whatever) sets prefix/suffix preset to space (s) or C-style (c). Everything else is data. See section 'Commands' for a full explanation. The -n flag just makes it append a newline.
 
 
-#### See the per-byte layout of a larger integer in big or little endian format.
+#### See the per-byte layout (_oh1_, _Ps_) of a 4-byte integer (_decimal 12345678_) in big (_ih4b_) or little endian (_ih4l_) format.
 
     $ bo -n oh1 Ps ih4b 12345678
     12 34 56 78
 
-Note: The arguments don't need to be separate cmdline arguments. `bo -n "oh1 Ps ih4b 12345678"` does the exact same thing because parsing separates by whitespace.
+Note: The arguments don't need to be separate cmdline arguments. `bo -n "oh1 Ps ih4b 12345678"` does the exact same thing because parsing separates by whitespace. Input files specified by the -i switch are also parsed the same way.
 
     $ bo -n oh1 Ps ih4l 12345678
     78 56 34 12
