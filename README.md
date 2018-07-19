@@ -15,7 +15,7 @@ Bo reads data and interprets it according to its current input mode, converting 
     $ bo -n oh1 Ps ih4b 12345678
     12 34 56 78
 
-Note: The arguments don't need to be sparate cmdline arguments. `bo -n "oh1 Ps ih4b 12345678"` does the exact same thing because parsing separates by whitespace.
+Note: The arguments don't need to be separate cmdline arguments. `bo -n "oh1 Ps ih4b 12345678"` does the exact same thing because parsing separates by whitespace.
 
     $ bo -n oh1 Ps ih4l 12345678
     78 56 34 12
@@ -77,6 +77,15 @@ example.txt:
 
 
 #### Build up test data for low level code.
+
+This sets output to hex, 2 digits per entry, then adds data using a bunch of different input types:
+
+  * Input 1.5 and 1.25 as 4-byte floats, big endian
+  * Input 1000, 2000, and 3000 as 2-byte integers, big endian (in decimal)
+  * Input ff, fe, and 7a as 1-byte integers (in hex)
+  * Input 10001011 as 1-byte integer (in binary)
+
+The result:
 
     $ bo -n oh1l2 Pc if4b 1.5 1.25 ii2b 1000 2000 3000 ih1 ff fe 7a ib1 10001011
     0x3f, 0xc0, 0x00, 0x00, 0x3f, 0xa0, 0x00, 0x00, 0x03, 0xe8, 0x07, 0xd0, 0x0b, 0xb8, 0xff, 0xfe, 0x7a, 0x8b
