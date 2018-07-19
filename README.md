@@ -5,7 +5,9 @@ The Swiss army knife of data examination and manipulation.
 
 This is the tool to use when you need to visualize or convert data in different formats.
 
-Bo reads data and interprets it according to its current input mode, converting it to a binary format. It then re-interprets the binary data according to the output mode and writes it to output. This allows you to do things such as:
+Bo reads data and interprets it according to its current input mode, converting it to a binary format. It then re-interprets the binary data according to the output mode and writes it to output. This allows you to do all sorts of interesting things with your data:
+
+**Note for examples**: i(whatever) sets input type, o(whatever) sets output type, P(whatever) sets preset to string (s) or C-style (c). Everything else is data. See section 'Commands' for a full explanation.
 
 
 #### See the per-byte layout of a larger integer in big or little endian format.
