@@ -7,13 +7,15 @@ This is the tool to use when you need to visualize or convert data in different 
 
 Bo reads data and interprets it according to its current input mode, converting it to a binary format. It then re-interprets the binary data according to the output mode and writes it to output. This allows you to do all sorts of interesting things with your data:
 
-**Note for examples**: i(whatever) sets input type, o(whatever) sets output type, P(whatever) sets prefix/suffix preset to space (s) or C-style (c). Everything else is data. See section 'Commands' for a full explanation.
+**Note for examples**: i(whatever) sets input type, o(whatever) sets output type, P(whatever) sets prefix/suffix preset to space (s) or C-style (c). Everything else is data. See section 'Commands' for a full explanation. The -n flag just makes it append a newline.
 
 
 #### See the per-byte layout of a larger integer in big or little endian format.
 
     $ bo -n oh1 Ps ih4b 12345678
     12 34 56 78
+
+Note: The arguments don't need to be sparate cmdline arguments. `bo -n "oh1 Ps ih4b 12345678"` does the exact same thing because parsing separates by whitespace.
 
     $ bo -n oh1 Ps ih4l 12345678
     78 56 34 12
@@ -278,6 +280,7 @@ Presets define preset prefixes and suffixes for common tasks. Currently, the fol
   * c: C-style prefix/suffix: ", " suffix, and prefix based on output type: 0x for hex, 0 for octal, and nothing for everything else.
   * s: Space separator between entries.
 
+**Note**: 
 
 
 Usage Examples
