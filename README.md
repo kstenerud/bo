@@ -19,7 +19,7 @@ Think of bo as a data processor that takes in streams of commands and data, and 
     stdin -------------------/     +------+
 
 
-Input consists of whitespace separated commands and data, which can be passed in via command line arguments, files, and stdin. Commands determine how input data is to be interpreted, and how output is to be formatted.
+Input consists of whitespace separated commands and data, which can be passed in via command line arguments, files, and stdin. Regardless of input source(s), the syntax is exactly the same: whitespace separated commands. Commands determine how input data is to be interpreted, and how output is to be formatted.
 
 
 
@@ -30,7 +30,8 @@ Examples
 
 This is a short introduction to understand the examples. See the `Commands` section below for a full description.
 
-Commands used in the examples:
+
+#### Commands used in the examples:
 
   * i{parameters}: Set input type.
   * o{parameters}: Set output type.
@@ -39,36 +40,37 @@ Commands used in the examples:
 
 The values i, o, P, and " are used to initiate commands. If bo doesn't recognize a command initiator, it will attempt to interpret numeric data.
 
-Input and output type commands consist of multiple fields:
+#### Input and output type commands consist of multiple fields:
 
-  * Type: What type to read data as, or what to output as (see below)
-  * Data Width: The width of each datum in bytes (1, 2, 4, 8, 16)
-  * Endianness: What endianness to use when reading or presenting data ("l" or "b" - only required for data width > 1)
-  * Print Width: Minimum number of digits to use when printing numeric values (only for output. optional).
+  * **Type**: What type to read data as, or what to output as (see below)
+  * **Data Width**: The width of each datum in bytes (1, 2, 4, 8, 16)
+  * **Endianness**: What endianness to use when reading or presenting data ("l" or "b" - only required for data width > 1)
+  * **Print Width**: Minimum number of digits to use when printing numeric values (only for output. optional).
 
-Types:
+##### Types:
 
-  * Integer: base 16 (h), 10 (i), 8 (o), 2 (b)
-  * Floating point (f)
-  * String with c-style escaping (s)
-  * Raw binary data (B)
+  * **Integer**: base 16 (h), 10 (i), 8 (o), 2 (b)
+  * **Floating point** (f)
+  * **String** with c-style escaping (s)
+  * **Raw binary data** (B)
 
 For example, `ih2b` means set input type to hexadecimal, 2 bytes per value, big endian. `oo4l11` means set output type to octal, 4 bytes per value, little endian, 11 digits minimum.
 
-All input sources are read as streams of whitespace separated commands and data. For example:
+
+#### Guided Example:
 
     oh1l2 Ps if4l 35.01 10.5 ih1 9f 5a
 
-This stream does the following:
+This stream of commands does the following:
 
   * set output to hex, 1 byte per value, little endian (only required to separate the last field), min 2 digits per value.
   * Set output preset to "s" (space separated).
   * Set input to float, 4 bytes per value, little endian.
-  * Read 35.01 and store internally according to input type (4 byte little endian float).
-  * Read 10.5 and store internally according to input type (4 byte little endian float).
+  * Read 35.01 and store internally according to current input type (4 byte little endian float).
+  * Read 10.5 and store internally according to current input type (4 byte little endian float).
   * Set input to hex, 1 byte per value (endianness not needed).
-  * Read 9f and store internally according to input type (1 byte hex).
-  * Read 5a and store internally according to input type (1 byte hex).
+  * Read 9f and store internally according to current input type (1 byte hex).
+  * Read 5a and store internally according to current input type (1 byte hex).
 
 And output will be `3d 0a 0c 42 00 00 28 41 9f 5a`
 
