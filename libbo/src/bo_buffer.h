@@ -57,11 +57,8 @@ static inline bo_buffer buffer_alloc(int size, int overhead)
 
 static inline void buffer_free(bo_buffer* buffer)
 {
-    if(buffer->start != NULL)
-    {
-        free(buffer->start);
-        buffer->start = buffer->pos = buffer->end = NULL;
-    }
+    free(buffer->start);
+    buffer->start = buffer->pos = buffer->end = NULL;
 }
 
 static inline bool buffer_is_high_water(bo_buffer* buffer)

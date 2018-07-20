@@ -845,10 +845,7 @@ void bo_on_preset(bo_context* context, const uint8_t* string_value)
 void bo_on_prefix(bo_context* context, const uint8_t* prefix)
 {
     LOG("Set prefix [%s]", prefix);
-    if(context->output.prefix != NULL)
-    {
-        free((void*)context->output.prefix);
-    }
+    free((void*)context->output.prefix);
     context->output.prefix = strdup((char*)prefix);
     if(context->output.prefix == NULL)
     {
@@ -859,10 +856,7 @@ void bo_on_prefix(bo_context* context, const uint8_t* prefix)
 void bo_on_suffix(bo_context* context, const uint8_t* suffix)
 {
     LOG("Set suffix [%s]", suffix);
-    if(context->output.suffix != NULL)
-    {
-        free((void*)context->output.suffix);
-    }
+    free((void*)context->output.suffix);
     context->output.suffix = strdup((char*)suffix);
     if(context->output.suffix == NULL)
     {
@@ -947,14 +941,8 @@ bool bo_flush_and_destroy_context(void* void_context)
     bool is_successful = !is_error_condition(context);
     buffer_free(&context->work_buffer);
     buffer_free(&context->output_buffer);
-    if(context->output.prefix != NULL)
-    {
-        free((void*)context->output.prefix);
-    }
-    if(context->output.suffix != NULL)
-    {
-        free((void*)context->output.suffix);
-    }
+    free((void*)context->output.prefix);
+    free((void*)context->output.suffix);
     free((void*)context);
     return is_successful;
 }
