@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "bo_internal.h"
 #include "library_version.h"
@@ -849,6 +850,10 @@ void bo_on_prefix(bo_context* context, const uint8_t* prefix)
         free((void*)context->output.prefix);
     }
     context->output.prefix = strdup((char*)prefix);
+    if(context->output.prefix == NULL)
+    {
+        bo_notify_error(context, "Could not clone string [%s]: %s", prefix, strerror(errno));
+    }
 }
 
 void bo_on_suffix(bo_context* context, const uint8_t* suffix)
@@ -859,6 +864,10 @@ void bo_on_suffix(bo_context* context, const uint8_t* suffix)
         free((void*)context->output.suffix);
     }
     context->output.suffix = strdup((char*)suffix);
+    if(context->output.suffix == NULL)
+    {
+        bo_notify_error(context, "Could not clone string [%s]: %s", suffix, strerror(errno));
+    }
 }
 
 void bo_on_input_type(bo_context* context, bo_data_type data_type, int data_width, bo_endianness endianness)
