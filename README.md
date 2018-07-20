@@ -5,31 +5,98 @@ The Swiss army knife of data examination and manipulation.
 
 This is the tool to use when you need to visualize or convert data in different formats.
 
-Bo reads data and interprets it according to its current input mode, converting it to a binary format. It then re-interprets the binary data according to the output mode and writes it to output. This allows you to do all sorts of interesting things with your data:
 
-**Note for examples**: i(whatever) sets input type, o(whatever) sets output type, P(whatever) sets prefix/suffix preset to space (s) or C-style (c). Everything else is data. See section 'Commands' for a full explanation. The -n flag just makes it append a newline.
+How It Works
+------------
+
+Think of bo as a data processor that takes in streams of commands and data, and outputs accordingly:
+
+    Command line arguments --\     +------+
+                              \    |      |
+    Files -----------------------> |  bo  | ---> stdout or file
+                              /    |      |
+    stdin -------------------/     +------+
+
+
+Input consists of whitespace separated commands and data, which can be passed in via command line arguments, files, and stdin. Commands determine how input data is to be interpreted, and how output is to be formatted.
+
+
+
+Brief Introduction
+------------------
+
+Here are the commands used in the examples that follow. i, o, P, and " are used to initiate commands. For anything not a command, bo will attempt to interpret it as a numeric value.
+
+  * i{parameters}: Set input type.
+  * o{parameters}: Set output type.
+  * P{type}: Set the prefix and suffix from a preset ("s" for space separators, and "c" for C-style separators).
+  * "a string": Add a string value.
+
+Input and output type commands consist of multiple fields:
+
+  * Type: What type to read data as, or what to output as (see below)
+  * Data Width: The width of each datum in bytes (1, 2, 4, 8, 16)
+  * Endianness: What endianness to use when reading or presenting data ("l" or "b" - only required for data width > 1)
+  * Print Width: Minimum number of digits to use when printing numeric values (only for output. optional).
+
+Types:
+
+  * Integer (i): Integer in base 10
+  * Hexadecimal (h): Integer in base 16
+  * Octal (o): Integer in base 8
+  * Boolean (b): Integer in base 2
+  * Float (f): IEEE 754 binary floating point
+  * Decimal (d): IEEE 754 binary decimal
+  * String (s): String, with c-style encoding for escaped chars (tab, newline, hex, etc).
+  * Binary (B): Data is interpreted or output using its binary representation rather than text.
+
+For example, `ih2b` means set input type to hexadecimal, 2 bytes per value, big endian. `oo4l11` means set output type to octal, 4 bytes per value, little endian, 11 digits minimum.
+
+All input sources are read as streams of whitespace separated commands and data. For example:
+
+    oh1l2 Ps if4l 35.01 10.5 ih1 9f 5a
+
+This stream does the following:
+
+  * set output to hex, 1 byte per value, little endian (only required to separate the last field), min 2 digits per value.
+  * Set output preset to "s" (space separated).
+  * Set input to float, 4 bytes per value, little endian.
+  * Read 35.01 and store internally according to input type (4 byte little endian float).
+  * Read 10.5 and store internally according to input type (4 byte little endian float).
+  * Set input to hex, 1 byte per value (endianness not needed).
+  * Read 9f and store internally according to input type (1 byte hex).
+  * Read 5a and store internally according to input type (1 byte hex).
+
+And output will be `3d 0a 0c 42 00 00 28 41 9f 5a`
+
+
+
+Examples of what you can do with bo
+-----------------------------------
+
+Note: the `-n` flag just appends a newline after processing.
 
 
 #### See the per-byte layout (_oh1_, _Ps_) of a 4-byte integer (_decimal 12345678_) in big (_ih4b_) or little endian (_ih4l_) format.
 
-    $ bo -n oh1 Ps ih4b 12345678
+    $ bo -n "oh1 Ps ih4b 12345678"
     12 34 56 78
 
 Note: The arguments don't need to be separate cmdline arguments. `bo -n "oh1 Ps ih4b 12345678"` does the exact same thing because parsing separates by whitespace. Input files specified by the -i switch are also parsed the same way.
 
-    $ bo -n oh1 Ps ih4l 12345678
+    $ bo -n "oh1 Ps ih4l 12345678"
     78 56 34 12
 
 
 #### Convert integers between bases.
 
-    $ bo -n oh8b16 Pc ii8b 1000000
+    $ bo -n "oh8b16 Pc ii8b 1000000"
     0x00000000000f4240
 
-    $ bo -n oi8b ih8b 7fffffffffffffff
+    $ bo -n "oi8b ih8b 7fffffffffffffff"
     9223372036854775807
 
-    $ bo -n ob8b ih8b ffe846134453a8c2
+    $ bo -n "ob8b ih8b ffe846134453a8c2"
     1111111111101000010001100001001101000100010100111010100011000010
 
 
@@ -37,25 +104,27 @@ Note: The arguments don't need to be separate cmdline arguments. `bo -n "oh1 Ps 
 
 Fake a 12-byte memory dump as an example:
 
-    $ bo oB1 if4b 1.1 8.5 305.125 >memory_dump.bin
+    $ bo "oB1 if4b 1.1 8.5 305.125" >memory_dump.bin
 
 What it looks like in memory:
 
-    $ bo -n -i memory_dump.bin oh1b2 Pc iB1
+    $ bo -n -i memory_dump.bin "oh1b2 Pc iB1"
     0x3f, 0x8c, 0xcc, 0xcd, 0x41, 0x08, 0x00, 0x00, 0x43, 0x98, 0x90, 0x00
 
 What it looks like interpreted as floats:
 
-    $ bo -n -i memory_dump.bin of4b3 Pc iB1
+    $ bo -n -i memory_dump.bin "of4b3 Pc iB1"
     1.100, 8.500, 305.125
 
 
 #### Convert the endianness of a data dump.
 
-    $ bo oB1 ih2b 0123 4567 89ab >data.bin
+    $ bo "oB1 ih2b 0123 4567 89ab" >data.bin
 
-    $ bo -n -i data.bin oh2l Pc iB1
+    $ bo -n -i data.bin "oh2l Pc iB1"
     0x2301, 0x6745, 0xab89
+
+Note: Once input type is set to binary, bo stops parsing, and just passes input DIRECTLY to the output system using the current output type.
 
 
 #### Convert text files to C-friendly strings.
@@ -66,54 +135,32 @@ example.txt:
     There are tabs  between these words.
     ¡8-Ⅎ⊥∩ sʇɹoddns osʃɐ ʇI
 
-    $ bo -n -i example.txt os iB1
+    $ bo -n -i example.txt "os iB1"
     This is a test.\nThere are tabs\tbetween\tthese\twords.\n¡8-Ⅎ⊥∩ sʇɹoddns osʃɐ ʇI
 
 
 #### Reinterpret one type as another at the binary level (for whatever reason).
 
-    $ bo -n oi4b if4b 1.5
+    $ bo -n "oi4b if4b 1.5"
     1069547520
 
 
-#### Build up test data for low level code.
+#### Complex example: Build up a data packet with multiple data types.
 
-This sets output to hex, 2 digits per entry, then adds data using a bunch of different input types:
+    $ bo -n "oh1l2 Pc if4b 1.5 1.25 ii2b 1000 2000 3000 ih1 ff fe 7a ib1 10001011"
 
-  * Input 1.5 and 1.25 as 4-byte floats, big endian
-  * Input 1000, 2000, and 3000 as 2-byte integers, big endian (in decimal)
-  * Input ff, fe, and 7a as 1-byte integers (in hex)
-  * Input 10001011 as 1-byte integer (in binary)
+Does the following:
+
+  * Set output to hex, 2 ditis per entry (`oh1l2`).
+  * Set output prefix/suffix using the "c" preset (`Pc`).
+  * Input 1.5 and 1.25 as 4-byte floats, big endian (`if4b 1.5 1.25`).
+  * Input 1000, 2000, and 3000 as 2-byte decimal integers, big endian (`ii2b 1000 2000 3000`)
+  * Input ff, fe, and 7a as 1-byte hex integers (`ih1 ff fe 7a`)
+  * Input 10001011 as 1-byte binary integer (`ib1 10001011`)
 
 The result:
 
-    $ bo -n oh1l2 Pc if4b 1.5 1.25 ii2b 1000 2000 3000 ih1 ff fe 7a ib1 10001011
     0x3f, 0xc0, 0x00, 0x00, 0x3f, 0xa0, 0x00, 0x00, 0x03, 0xe8, 0x07, 0xd0, 0x0b, 0xb8, 0xff, 0xfe, 0x7a, 0x8b
-
-
-
-Building
---------
-
-Requirements:
-
-  * CMake
-  * C/C++ compiler
-
-Commands:
-
-    mkdir build
-    cd build
-    cmake ..
-    make
-    ./bo_app/bo -h
-
-
-
-Tests
------
-
-    ./libbo/test/libbo_test
 
 
 
@@ -132,10 +179,20 @@ Usage
   * -v Print version and exit.
 
 
-Specifying "-" as the filename will cause bo to use stdin (when used with -i) or stdout (when used with -o).
-By default, bo won't read from any files, and will write output to stdout.
+The `bo` command can take input from command line arguments, files (using the -i switch), and stdin (using `-i -`). You may specify as many `-i` switches as you like. Bo first reads all command line arguments, and then reads files in the order they were specified using the `-i` switch. For example:
 
-Commands may be passed in as command line arguments, and as files via the -i switch. You may specify as many -i switches as you like. Bo will first parse all command line arguments, and then all files specified via -i switches.
+    bo -i file1.txt -i - -i file2.txt "oh2b4 Pc" io4b "1 2 3"
+
+Bo will:
+
+  * Parse the string `oh2b4 Pc`
+  * Parse the string `io4b`
+  * Parse the string `1 2 3`
+  * Parse from `file1.txt`
+  * Parse from stdin (`-i -`)
+  * Parse from `file2.txt`
+
+By default, bo outputs to stdout. You can specify an output file using `-o`.
 
 
 
@@ -144,33 +201,17 @@ Commands
 
 Bo parses whitespace separated strings and interprets them as commands. The following commands are supported:
 
-  * i: Set input type.
-  * o: Set output type.
-  * p: Set the prefix to prepend to every output value.
-  * s: Set the suffix to append to every value except the last.
-  * P: Set the prefix and suffix from a preset.
-  * "...": Read a string value.
-  * (numeric): Read a numeric value.
-
-Bo reads a series of whitespace separated commands and data, and uses them to interpret input data and convert it for output. The commands are as follows:
-
   * i{type}{data width}{endianness}: Specify how to interpret input data
   * o{type}{data width}{endianness}[print width]: Specify how to re-interpret data and how to print it
   * p{string}: Specify a prefix to prepend to each datum output
   * s{string}: Specify a suffix to append to each datum output (except for the last object)
   * P{type}: Specify a preset for prefix and suffix.
-
-
-Bo will attempt to interpret any non-command as data (number for anything numeric, and string for anything between quotes).
+  * "...": Read a string value.
+  * (numeric): Read a numeric value.
 
 Data is interpreted according to the input format, stored in an intermediary buffer as binary data, and then later re-interpreted and printed according to the output format.
 
 Strings are copied as bytes to the intermediary binary buffer, to be reinterpreted later by the output format.
-
-For example, data input as hex encoded little endian 16-bit integers (ih2l), and then re-interpreted as hex encoded little endian 32-bit integers (oh4l8) with a space (s\" \") suffix would look like:
-
-    input:  1234 5678 9abc 5432
-    output: 78563412 3254bc9a
 
 Before processing any data, both input and output types must be specified via `input type` and `output type` commands. You may later change the input or output types again via commands, even after interpreting data. Any time the output type is changed, all buffers are flushed.
 
@@ -289,78 +330,30 @@ Presets define preset prefixes and suffixes for common tasks. Currently, the fol
   * c: C-style prefix/suffix: ", " suffix, and prefix based on output type: 0x for hex, 0 for octal, and nothing for everything else.
   * s: Space separator between entries.
 
-**Note**: 
 
 
-Usage Examples
---------------
+Building
+--------
 
-Read binary file.bin and print out in "C" format as bytes:
+Requirements:
 
-    bo -i file.bin oh1l2 Pc iB
+  * CMake
+  * C/C++ compiler
 
-  * Set output type to hex, 1 byte per value, little endian (doesn't matter here), 2 digits per value.
-  * Use the "c" preset, which sets prefix to "0x" and suffix to ", ".
-  * Set input to binary. No more commands will be accepted. All input after parsing this argument will be treated as binary.
-  * Read binary data from file1.bin and output as 0x01, 0xfe, 0x5a, etc.
+Commands:
 
-
-Read 3 numbers as big endian 32-bit floats and store them as binary to file.bin:
-
-    bo -o file.bin oB1 if4b "1.1 -400000 89.45005"
-
-  * Set output type to binary.
-  * Set input type to floating point, 4 bytes per value, big endian.
-  * Set the output file to "file.bin"
-  * Write three 32-bit ieee754 floating point values in binary to file.bin in big endian order.
+    mkdir build
+    cd build
+    cmake ..
+    make
+    ./bo_app/bo -h
 
 
-Read a number as a little endian 64-bit floating point number and print out its byte values:
 
-    bo oh1l2 if8l "s\" \"" 1.5
+Tests
+-----
 
-  * Set output type to hex bytes, 2 digit width.
-  * Set input type to 64-bit little endian float.
-  * Set the separator value to a space.
-  * Interpret the number 1.5
-
-
-Do a complex operation with command arguments and files:
-
-    bo -i file1 -i file2 oh2b4 ih2l 1234 "5678 9abc"
-
-  * set output type to hex, 2 bytes per value, big endian, minimum 4 characters per value.
-  * set input type to hex, 2 bytes per value, little endian.
-  * process "1234" as 16-bit hex.
-  * process "5678 9abc" as 16-bit hex values.
-  * process file1 as commands
-  * process file2 as commands
-
-
-Convert the endianness of a binary file containing 16-bit values:
-
-    bo -i input.bin -o output.bin oB2l iB2b
-
-  * Set output type to binary, 2 bytes per value, little endian.
-  * Set input type to binary, 2 bytes per value, big endian.
-  * Read binary data from input.bin
-  * Write binary data to output.bin
-
-
-Convert the endianness of a binary file containing 16-bit values, using stdin and stdout:
-
-    cat somefile.bin | bo -i - oB2l iB2b > swapped.bin
-
-  * Set output type to binary, 2 bytes per value, little endian.
-  * Set input type to binary, 2 bytes per value, big endian.
-  * Read binary data from stdin
-  * Write binary data to stdout
-
-Convert the string "Testing" to its hex representation using "space" preset:
-
-    bo oh1b2 Ps ih1 "\"Testing\""
-
-output: 54 65 73 74 69 6e 67
+    ./libbo/test/libbo_test
 
 
 
