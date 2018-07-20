@@ -6,6 +6,7 @@ The Swiss army knife of data examination and manipulation.
 This is the tool to use when you need to visualize or convert data in different formats.
 
 
+
 How It Works
 ------------
 
@@ -22,15 +23,21 @@ Input consists of whitespace separated commands and data, which can be passed in
 
 
 
-Brief Introduction
-------------------
+Examples
+--------
 
-Here are the commands used in the examples that follow. i, o, P, and " are used to initiate commands. For anything not a command, bo will attempt to interpret it as a numeric value.
+### Brief Introduction
+
+This is a short introduction to understand the examples. See the `Commands` section below for a full description.
+
+Commands used in the examples:
 
   * i{parameters}: Set input type.
   * o{parameters}: Set output type.
   * P{type}: Set the prefix and suffix from a preset ("s" for space separators, and "c" for C-style separators).
   * "a string": Add a string value.
+
+The values i, o, P, and " are used to initiate commands. If bo doesn't recognize a command initiator, it will attempt to interpret numeric data.
 
 Input and output type commands consist of multiple fields:
 
@@ -41,14 +48,10 @@ Input and output type commands consist of multiple fields:
 
 Types:
 
-  * Integer (i): Integer in base 10
-  * Hexadecimal (h): Integer in base 16
-  * Octal (o): Integer in base 8
-  * Boolean (b): Integer in base 2
-  * Float (f): IEEE 754 binary floating point
-  * Decimal (d): IEEE 754 binary decimal
-  * String (s): String, with c-style encoding for escaped chars (tab, newline, hex, etc).
-  * Binary (B): Data is interpreted or output using its binary representation rather than text.
+  * Integer: base 16 (h), 10 (i), 8 (o), 2 (b)
+  * Floating point (f)
+  * String with c-style escaping (s)
+  * Raw binary data (B)
 
 For example, `ih2b` means set input type to hexadecimal, 2 bytes per value, big endian. `oo4l11` means set output type to octal, 4 bytes per value, little endian, 11 digits minimum.
 
@@ -71,8 +74,7 @@ And output will be `3d 0a 0c 42 00 00 28 41 9f 5a`
 
 
 
-Examples of what you can do with bo
------------------------------------
+### Examples of what you can do with bo
 
 Note: the `-n` flag just appends a newline after processing.
 
@@ -81,8 +83,6 @@ Note: the `-n` flag just appends a newline after processing.
 
     $ bo -n "oh1 Ps ih4b 12345678"
     12 34 56 78
-
-Note: The arguments don't need to be separate cmdline arguments. `bo -n "oh1 Ps ih4b 12345678"` does the exact same thing because parsing separates by whitespace. Input files specified by the -i switch are also parsed the same way.
 
     $ bo -n "oh1 Ps ih4l 12345678"
     78 56 34 12
@@ -135,6 +135,8 @@ example.txt:
     There are tabs  between these words.
     ¡8-Ⅎ⊥∩ sʇɹoddns osʃɐ ʇI
 
+Read in example.txt as raw binary, and output as a C-style escaped string.
+
     $ bo -n -i example.txt "os iB1"
     This is a test.\nThere are tabs\tbetween\tthese\twords.\n¡8-Ⅎ⊥∩ sʇɹoddns osʃɐ ʇI
 
@@ -158,7 +160,7 @@ Does the following:
   * Input ff, fe, and 7a as 1-byte hex integers (`ih1 ff fe 7a`)
   * Input 10001011 as 1-byte binary integer (`ib1 10001011`)
 
-The result:
+Results in:
 
     0x3f, 0xc0, 0x00, 0x00, 0x3f, 0xa0, 0x00, 0x00, 0x03, 0xe8, 0x07, 0xd0, 0x0b, 0xb8, 0xff, 0xfe, 0x7a, 0x8b
 
@@ -179,20 +181,22 @@ Usage
   * -v Print version and exit.
 
 
-The `bo` command can take input from command line arguments, files (using the -i switch), and stdin (using `-i -`). You may specify as many `-i` switches as you like. Bo first reads all command line arguments, and then reads files in the order they were specified using the `-i` switch. For example:
+The `bo` command can take input from command line arguments, files (using the -i switch), and stdin (using `-i -`). You may specify as many `-i` switches as you like. Bo first reads all command line arguments, and then reads files in the order they were specified using the `-i` switch.
+
+For example:
 
     bo -i file1.txt -i - -i file2.txt "oh2b4 Pc" io4b "1 2 3"
 
 Bo will:
 
-  * Parse the string `oh2b4 Pc`
-  * Parse the string `io4b`
-  * Parse the string `1 2 3`
-  * Parse from `file1.txt`
-  * Parse from stdin (`-i -`)
-  * Parse from `file2.txt`
+  * Parse the string `oh2b4 Pc` (set output type to 2-byte hex, big endian, min 4 digits, then use "c" preset)
+  * Parse the string `io4b` (set input type to 4-byte octal, big endian)
+  * Parse the string `1 2 3` (read 3 integers)
+  * Parse from `file1.txt` (execute all commands contained in the file)
+  * Parse from stdin (`-i -`) (execute all commands passed in via stdin)
+  * Parse from `file2.txt` (execute all commands contained in the file)
 
-By default, bo outputs to stdout. You can specify an output file using `-o`.
+By default, bo outputs to stdout, but you can specify an output file using `-o`.
 
 
 
@@ -235,6 +239,7 @@ The output specifier command consists of 4 parts:
   * Endianness: What endianness to use when presenting data (little or big endian)
   * Print Width: Minimum number of digits to use when printing numeric values (optional).
 
+
 #### Type
 
 Determines the type to be used for interpreting incoming data, or presenting outgoing data.
@@ -268,6 +273,12 @@ Note, however, that when inputting textual representations of boolean values, th
     $ bo ob2l ib2b 1011
     0000000011010000
 
+##### Notes on the raw binary type
+
+If you set the input type to raw binary (B), bo will no longer parse input; rather, it will stream raw input directly to the output function.
+
+
+
 #### Data Width
 
 Determines how wide of a data field to store the data in:
@@ -278,6 +289,7 @@ Determines how wide of a data field to store the data in:
   * 8 bytes (64-bit)
   * 16 bytes (128-bit)
 
+
 #### Endianness
 
 Determines in which order bits and bytes are encoded:
@@ -287,6 +299,7 @@ Determines in which order bits and bytes are encoded:
 
 The endianness field is optional when data width is 1, EXCEPT for output type boolean.
 
+
 #### Print Width
 
 Specifies the minimum number of digits to print when outputting numeric values. This is an optional field, and defaults to 1.
@@ -294,13 +307,15 @@ Specifies the minimum number of digits to print when outputting numeric values. 
 For integer types, zeroes are prepended until the printed value has the specified number of digits.
 For floating point types, zeroes are appended until the fractional portion has the specified number of digits. The whole number portion is not used and has no effect in this calculation.
 
-#### Examples
+
+#### Input and Output Type Examples
 
   * `ih2l`: Input type hexadecimal encoded integer, 2 bytes per value, little endian
   * `io4b`: Input type octal encoded integer, 4 bytes per value, big endian
   * `if4l`: Input type floating point, 4 bytes per value, little endian
   * `oi4l`: Output as 4-byte integers in base 10 with default minimum 1 digit (i.e. no zero padding)
   * `of8l10`: Interpret data as 8-byte floats and output with 10 digits after the decimal point.
+
 
 
 ### Prefix Specifier Command
