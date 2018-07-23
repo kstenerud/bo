@@ -20,301 +20,394 @@
 //
 
 
-// Prints out a list of the first 128 characters and their associated flags.
+// Generates a header file containing a table of meta information for all
+// basic characters.
+//
+// Just compile this file as a command line program and run. It will output the
+// enum and character table as a header file to stdout.
+
+
+// -------------
+// Configuration
+// -------------
+
+#define ENUM_NAME                    "character_flag"
+#define ENUM_PREFIX                  "CH_FLAG_"
+#define CHARACTER_FLAGS_TABLE_NAME   "g_character_flags"
+#define CHARACTER_FLAGS_TABLE_TYPE   unsigned char
+#define CHARACTER_FLAGS_TABLE_LENGTH 256
+
+// CHARACTER_FLAGS_TABLE_TYPE determines how many of these enum value get used.
+// An 8-bit table type will only have the first 8 flags.
+typedef enum
+{
+    NONE,
+
+    // Included symbols for 8-bit flags
+    CONTROL,            // Control character
+    WHITESPACE,         // Whitespace character
+    BASE_8,             // Can represent a number in base 8
+    BASE_10,            // Can represent a number in base 10
+    BASE_16,            // Can represent a number in base 16
+    FP_NUMBER,          // Includes digits, sign, decimal point, etc
+    ALPHANUMERIC,       // Letters and numbers ([a-zA-Z0-9])
+    PRINTABLE,          // A single-byte printable symbol
+
+    // Included symbols for 16-bit flags
+    SYMBOL,             // A symbol character
+    BASE_2,             // Can represent a number in base 2
+    UTF_8,              // UTF-8 multibyte octet of any kind
+    UTF_8_2_BYTES,      // UTF-8 2-byte initiator
+    UTF_8_3_BYTES,      // UTF-8 3-byte initiator
+    UTF_8_4_BYTES,      // UTF-8 4-byte initiator
+    UTF_8_CONTINUATION, // UTF-8 continuation octet
+} character_flag;
+
+// The contents of g_character_flag_names can be defined in any order.
+// The [XYZ] = "XYZ" syntax ensures proper order matching to the enum.
+static const char* const g_character_flag_names[] =
+{
+    [NONE]               = "NONE",
+    [CONTROL]            = "CONTROL",
+    [SYMBOL]             = "SYMBOL",
+    [WHITESPACE]         = "WHITESPACE",
+    [BASE_2]             = "BASE_2",
+    [BASE_8]             = "BASE_8",
+    [BASE_10]            = "BASE_10",
+    [BASE_16]            = "BASE_16",
+    [FP_NUMBER]          = "FP_NUMBER",
+    [ALPHANUMERIC]       = "ALPHANUMERIC",
+    [UTF_8]              = "UTF_8",
+    [UTF_8_2_BYTES]      = "UTF_8_2_BYTES",
+    [UTF_8_3_BYTES]      = "UTF_8_3_BYTES",
+    [UTF_8_4_BYTES]      = "UTF_8_4_BYTES",
+    [UTF_8_CONTINUATION] = "UTF_8_CONTINUATION",
+    [PRINTABLE]          = "PRINTABLE",
+};
+
+
+
+// -----
+// Setup
+// -----
 
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
+
+#define STRINGIZE_PARAM_(arg) #arg
+#define STRINGIZE_PARAM(arg) STRINGIZE_PARAM_(arg)
+#define CHARACTER_FLAGS_TABLE_TYPE_NAME  STRINGIZE_PARAM(CHARACTER_FLAGS_TABLE_TYPE)
+
+static int g_character_flag_names_count = sizeof(g_character_flag_names) / sizeof(*g_character_flag_names);
 
 
 
-// Configuration
+// ----
+// Data
+// ----
 
-#define ENUM_NAME   "character_flag"
-#define ENUM_PREFIX "CHARACTER_FLAG_"
-
-static const char* const g_character_flag_names[] =
-{
-	"NONE",          // No flags for this character
-	"CONTROL",       // Control character
-	"WHITESPACE",    // This is a whitespace character
-	"BASE_10",       // This character can be used to represent a number in base 10
-	"BASE_16",       // This character can be used to represent a number in base 16
-	"NUMBER",        // digits, sign, decimal point, etc
-	"ALPHANUMERIC",  // This character is alphanumeric ([a-zA-Z0-9])
-	// "SYMBOL",        // This is a symbol character
-	"BASE_8",        // This character can be used to represent a number in base 8
-	"PRINTABLE",     // This character represents a printable symbol
-};
-
-#define CHARACTER_FLAGS_TABLE_NAME   "g_character_flags"
-#define CHARACTER_FLAGS_TABLE_TYPE   "uint8_t"
-#define CHARACTER_FLAGS_TABLE_LENGTH 256
+static uint64_t g_character_flags[256] = {0};
+static char g_character_names[256][100] = {0};
 
 
 
-// Flag Information
-
-typedef enum
-{
-	NONE         = 0x00,
-	CONTROL      = 0x01,
-	WHITESPACE   = 0x02,
-	BASE_10      = 0x04,
-	BASE_16      = 0x08,
-	NUMBER       = 0x10,
-	ALPHANUMERIC = 0x20,
-	// SYMBOL       = 0x40,
-	BASE_8       = 0x40,
-	PRINTABLE    = 0x80,
-} character_flag;
-
-static const character_flag g_character_flags[] =
-{
-	NONE,
-	CONTROL,
-	WHITESPACE,
-	BASE_10,
-	BASE_16,
-	NUMBER,
-	ALPHANUMERIC,
-	// SYMBOL,
-	BASE_8,
-	PRINTABLE,
-};
-static const int g_character_flags_count = sizeof(g_character_flags) / sizeof(g_character_flags[0]);
-
-
-
+// -------
 // Utility
+// -------
 
-#define CHARACTER_NAME_WIDTH 10
-
-static void mark_flags(character_flag* flags, character_flag flag, int min_char, int max_char)
+static int get_flag_values_max()
 {
-	for(int ch = min_char; ch <= max_char; ch++)
-	{
-		flags[ch] |= flag;
-	}
-}
-
-static void mark_whitespace(character_flag* flags)
-{
-	flags[0x09] |= WHITESPACE; // Character Tabulation
-	flags[0x0a] |= WHITESPACE; // Line Feed
-	flags[0x0b] |= WHITESPACE; // Line Tabulation
-	flags[0x0c] |= WHITESPACE; // Form Feed
-	flags[0x0d] |= WHITESPACE; // Carriage Return
-	flags[' '] |= WHITESPACE;
-}
-
-static void mark_numbers(character_flag* flags)
-{
-	mark_flags(flags, NUMBER, '0', '9');
-	mark_flags(flags, NUMBER, 'a', 'f');
-	mark_flags(flags, NUMBER, 'A', 'F');
-	flags['+'] |= NUMBER;
-	flags['-'] |= NUMBER;
-	flags['.'] |= NUMBER;
-}
-
-static void mark_control(character_flag* flags)
-{
-	mark_flags(flags, CONTROL, 0x00, 0x1f);
-	flags[0x7f] |= CONTROL;
-}
-
-static void mark_base_8(character_flag* flags)
-{
-	mark_flags(flags, BASE_8, '0', '7');
-}
-
-static void mark_base_10(character_flag* flags)
-{
-	mark_flags(flags, BASE_10, '0', '9');
-}
-
-static void mark_base_16(character_flag* flags)
-{
-	mark_flags(flags, BASE_16, '0', '9');
-	mark_flags(flags, BASE_16, 'a', 'f');
-	mark_flags(flags, BASE_16, 'A', 'F');
-}
-
-static void mark_alphanumeric(character_flag* flags)
-{
-	mark_flags(flags, ALPHANUMERIC, '0', '9');
-	mark_flags(flags, ALPHANUMERIC, 'a', 'z');
-	mark_flags(flags, ALPHANUMERIC, 'A', 'Z');
-}
-
-static void mark_symbols(character_flag* flags)
-{
-	// mark_flags(flags, SYMBOL, '!', '/');
-	// mark_flags(flags, SYMBOL, ':', '@');
-	// mark_flags(flags, SYMBOL, '[', '`');
-	// mark_flags(flags, SYMBOL, '{', '~');
-}
-
-static void mark_printable(character_flag* flags)
-{
-	mark_flags(flags, PRINTABLE, '!', '~');
-}
-
-static void set_character_names_auto(char character_names[][CHARACTER_NAME_WIDTH], const int min_char, const int max_char)
-{
-	for(int ch = min_char; ch <= max_char; ch++)
-	{
-		character_names[ch][0] = ch;
-		character_names[ch][1] = 0;
-	}
-}
-
-static void set_character_name(char* dst, const char* const name)
-{
-	strcpy(dst, name);
-}
-
-static void set_character_names(char names[][CHARACTER_NAME_WIDTH])
-{
-	set_character_names_auto(names, '!', '~');
-	set_character_name(names[0x00], "NUL");
-	set_character_name(names[0x01], "SOH");
-	set_character_name(names[0x02], "STX");
-	set_character_name(names[0x03], "ETX");
-	set_character_name(names[0x04], "EOT");
-	set_character_name(names[0x05], "ENQ");
-	set_character_name(names[0x06], "ACK");
-	set_character_name(names[0x07], "BEL");
-	set_character_name(names[0x08], "BS");
-	set_character_name(names[0x09], "HT");
-	set_character_name(names[0x0a], "LF");
-	set_character_name(names[0x0b], "VT");
-	set_character_name(names[0x0c], "FF");
-	set_character_name(names[0x0d], "CR");
-	set_character_name(names[0x0e], "SO");
-	set_character_name(names[0x0f], "SI");
-	set_character_name(names[0x10], "DLE");
-	set_character_name(names[0x11], "DC1");
-	set_character_name(names[0x12], "DC2");
-	set_character_name(names[0x13], "DC3");
-	set_character_name(names[0x14], "DC4");
-	set_character_name(names[0x15], "NAK");
-	set_character_name(names[0x16], "SYN");
-	set_character_name(names[0x17], "ETB");
-	set_character_name(names[0x18], "CAN");
-	set_character_name(names[0x19], "EM");
-	set_character_name(names[0x1a], "SUB");
-	set_character_name(names[0x1b], "ESC");
-	set_character_name(names[0x1c], "FS");
-	set_character_name(names[0x1d], "GS");
-	set_character_name(names[0x1e], "RS");
-	set_character_name(names[0x1f], "US");
-	set_character_name(names[' '], "Space");
-	set_character_name(names[0x7f], "DEL");
-}
-
-
-// Printing
-
-static void print_flags(const character_flag flag)
-{
-	if(flag == 0)
-	{
-		printf("%s%s", ENUM_PREFIX, g_character_flag_names[0]);
-		return;
-	}
-	bool first_entry = true;
-	for(int i = 1; i < g_character_flags_count; i++)
-	{
-		if(flag & g_character_flags[i])
-		{
-			if(!first_entry)
-			{
-				printf(" | ");
-			}
-			first_entry = false;
-			printf("%s%s", ENUM_PREFIX, g_character_flag_names[i]);
-		}
-	}
+    return sizeof(CHARACTER_FLAGS_TABLE_TYPE) * 8;
 }
 
 static int get_flag_value(int flag_index)
 {
-	return flag_index == 0 ? 0 : 1 << (flag_index - 1);
+    return flag_index == 0 ? 0 : 1 << (flag_index - 1);
+}
+
+static const char* get_flag_name(int flag_index)
+{
+    return g_character_flag_names[flag_index];
+}
+
+static const char* get_character_name(int ch)
+{
+    return g_character_names[ch];
+}
+
+static void set_character_name(int ch, const char* const name)
+{
+    strcpy(g_character_names[ch], name);
+}
+
+static bool is_character_flag_set(int ch, int flag_index)
+{
+    return (g_character_flags[ch] & get_flag_value(flag_index)) != 0;
+}
+
+static void add_flag_to_character(character_flag flag, int ch)
+{
+    g_character_flags[ch] |= get_flag_value(flag);
+}
+
+static void add_flag_to_characters_in_range(character_flag flag, int min_char, int max_char)
+{
+    for(int ch = min_char; ch <= max_char; ch++)
+    {
+        add_flag_to_character(flag, ch);
+    }
+}
+
+static void add_flag_to_characters(character_flag flag, const char* str)
+{
+    for(; *str != 0; str++)
+    {
+        add_flag_to_character(flag, *str);
+    }
+}
+
+static void set_character_names_literal(const int min_char, const int max_char)
+{
+    char name[2] = {0};
+    for(int ch = min_char; ch <= max_char; ch++)
+    {
+        name[0] = ch;
+        set_character_name(ch, name);
+    }
+}
+
+
+
+// --------
+// Printing
+// --------
+
+static void print_flags(const int ch)
+{
+    bool first_entry = true;
+    bool did_find_flag = false;
+    for(int i = 1; i <= get_flag_values_max() && i < g_character_flag_names_count; i++)
+    {
+        if(is_character_flag_set(ch, i))
+        {
+            if(!first_entry)
+            {
+                printf(" | ");
+            }
+            first_entry = false;
+            printf("%s%s", ENUM_PREFIX, get_flag_name(i));
+            did_find_flag = true;
+        }
+    }
+    if(!did_find_flag)
+    {
+        printf("%s%s", ENUM_PREFIX, get_flag_name(NONE));
+    }
 }
 
 static void print_enum()
 {
-	printf("typedef enum\n");
-	printf("{\n");
-	for(int i = 0; i < g_character_flags_count; i++)
-	{
-		printf("    %s%s = 0x%02x,\n", ENUM_PREFIX, g_character_flag_names[i], get_flag_value(i));
-	}
-	printf("} %s;\n", ENUM_NAME);
+    const int number_width = (int)sizeof(CHARACTER_FLAGS_TABLE_TYPE) * 2;
+    int text_width = 0;
+    for(int i = 0; i <= get_flag_values_max() && i < g_character_flag_names_count; i++)
+    {
+        int length = strlen(get_flag_name(i));
+        if(length > text_width)
+        {
+            text_width = length;
+        }
+    }
+
+    printf("typedef enum\n{\n");
+    for(int i = 0; i <= get_flag_values_max() && i < g_character_flag_names_count; i++)
+    {
+        printf("    %s%*s = 0x%0*x,\n",
+            ENUM_PREFIX,
+            -text_width,
+            get_flag_name(i),
+            number_width,
+            get_flag_value(i));
+    }
+    printf("} %s;\n", ENUM_NAME);
 }
 
-static void print_table(const character_flag* flags, const char names[][CHARACTER_NAME_WIDTH])
+static void print_table()
 {
-	printf("static const %s %s[%d] =\n", CHARACTER_FLAGS_TABLE_TYPE, CHARACTER_FLAGS_TABLE_NAME, CHARACTER_FLAGS_TABLE_LENGTH);
-	printf("{\n");
+    const int table_length = sizeof(g_character_flags) / sizeof(*g_character_flags);
 
-	for(int i = 0; i < 128; i++)
-	{
-		printf("    /* %-5s */ (%s)(", names[i], CHARACTER_FLAGS_TABLE_TYPE);
-		print_flags(flags[i]);
-		printf("),\n");
-	}
+    printf("static const %s %s[%d] =\n{\n",
+        CHARACTER_FLAGS_TABLE_TYPE_NAME,
+        CHARACTER_FLAGS_TABLE_NAME,
+        CHARACTER_FLAGS_TABLE_LENGTH);
 
-	printf("};\n");
+    for(int i = 0; i < table_length; i++)
+    {
+        printf("    /* %02x: %-5s */ (%s)(", i, get_character_name(i), CHARACTER_FLAGS_TABLE_TYPE_NAME);
+        print_flags(i);
+        printf("),\n");
+    }
+
+    printf("};\n");
 }
 
 
 
+// -----------
+// Definitions
+// -----------
+
+static void add_whitespace_flags()
+{
+    add_flag_to_characters(WHITESPACE, " \t\n\v\f\r");
+}
+
+static void add_number_flags()
+{
+    add_flag_to_characters_in_range(FP_NUMBER, '0', '9');
+    add_flag_to_characters(FP_NUMBER, "+-.eE");
+}
+
+static void add_control_flags()
+{
+    add_flag_to_characters_in_range(CONTROL, 0x00, 0x1f);
+    add_flag_to_character(CONTROL, 0x7f);
+}
+
+static void add_base_2_flags()
+{
+    add_flag_to_characters_in_range(BASE_2, '0', '1');
+}
+
+static void add_base_8_flags()
+{
+    add_flag_to_characters_in_range(BASE_8, '0', '7');
+}
+
+static void add_base_10_flags()
+{
+    add_flag_to_characters_in_range(BASE_10, '0', '9');
+}
+
+static void add_base_16_flags()
+{
+    add_flag_to_characters_in_range(BASE_16, '0', '9');
+    add_flag_to_characters_in_range(BASE_16, 'a', 'f');
+    add_flag_to_characters_in_range(BASE_16, 'A', 'F');
+}
+
+static void add_alphanumeric_flags()
+{
+    add_flag_to_characters_in_range(ALPHANUMERIC, '0', '9');
+    add_flag_to_characters_in_range(ALPHANUMERIC, 'a', 'z');
+    add_flag_to_characters_in_range(ALPHANUMERIC, 'A', 'Z');
+}
+
+static void add_symbol_flags()
+{
+    add_flag_to_characters_in_range(SYMBOL, '!', '/');
+    add_flag_to_characters_in_range(SYMBOL, ':', '@');
+    add_flag_to_characters_in_range(SYMBOL, '[', '`');
+    add_flag_to_characters_in_range(SYMBOL, '{', '~');
+}
+
+static void add_printable_flags()
+{
+    add_flag_to_characters_in_range(PRINTABLE, '!', '~');
+}
+
+static void add_utf_8_flags()
+{
+    add_flag_to_characters_in_range(UTF_8, 0x80, 0xf7);
+    add_flag_to_characters_in_range(UTF_8_2_BYTES, 0xc0, 0xdf);
+    add_flag_to_characters_in_range(UTF_8_3_BYTES, 0xe0, 0xef);
+    add_flag_to_characters_in_range(UTF_8_4_BYTES, 0xf0, 0xf7);
+    add_flag_to_characters_in_range(UTF_8_CONTINUATION, 0x80, 0xbf);
+}
+
+static void set_character_names()
+{
+    set_character_names_literal('!', '~');
+    set_character_name(0x00, "NUL");
+    set_character_name(0x01, "SOH");
+    set_character_name(0x02, "STX");
+    set_character_name(0x03, "ETX");
+    set_character_name(0x04, "EOT");
+    set_character_name(0x05, "ENQ");
+    set_character_name(0x06, "ACK");
+    set_character_name(0x07, "BEL");
+    set_character_name(0x08, "BS");
+    set_character_name(0x09, "HT");
+    set_character_name(0x0a, "LF");
+    set_character_name(0x0b, "VT");
+    set_character_name(0x0c, "FF");
+    set_character_name(0x0d, "CR");
+    set_character_name(0x0e, "SO");
+    set_character_name(0x0f, "SI");
+    set_character_name(0x10, "DLE");
+    set_character_name(0x11, "DC1");
+    set_character_name(0x12, "DC2");
+    set_character_name(0x13, "DC3");
+    set_character_name(0x14, "DC4");
+    set_character_name(0x15, "NAK");
+    set_character_name(0x16, "SYN");
+    set_character_name(0x17, "ETB");
+    set_character_name(0x18, "CAN");
+    set_character_name(0x19, "EM");
+    set_character_name(0x1a, "SUB");
+    set_character_name(0x1b, "ESC");
+    set_character_name(0x1c, "FS");
+    set_character_name(0x1d, "GS");
+    set_character_name(0x1e, "RS");
+    set_character_name(0x1f, "US");
+    set_character_name(' ', "Space");
+    set_character_name(0x7f, "DEL");
+}
+
+
+
+// -------
 // Program
+// -------
 
 int main(void)
 {
-	character_flag flags[128] = {0};
-	char names[128][CHARACTER_NAME_WIDTH] = {0};
+    set_character_names();
+    add_control_flags();
+    add_whitespace_flags();
+    add_base_2_flags();
+    add_base_8_flags();
+    add_base_10_flags();
+    add_base_16_flags();
+    add_number_flags();
+    add_alphanumeric_flags();
+    add_symbol_flags();
+    add_printable_flags();
+    add_utf_8_flags();
 
-	mark_control(flags);
-	mark_whitespace(flags);
-	mark_base_8(flags);
-	mark_base_10(flags);
-	mark_base_16(flags);
-	mark_numbers(flags);
-	mark_alphanumeric(flags);
-	mark_symbols(flags);
-	mark_printable(flags);
-	set_character_names(names);
+    printf(
+        "/* This file generated by " __FILE__ " */\n"
+        "\n"
+        "#ifndef ks_character_flags_H\n"
+        "#define ks_character_flags_H\n"
+        "#ifdef __cplusplus\n"
+        "extern \"C\" {\n"
+        "#endif\n"
+        "\n"
+        "\n"
+        );
 
-	printf(
-		"/* This file generated by build_character_flags.c */\n"
-		"\n"
-		"#ifndef character_flags_H\n"
-		"#define character_flags_H\n"
-		"#ifdef __cplusplus\n"
-		"extern \"C\" {\n"
-		"#endif\n"
-		"\n"
-		"\n"
-		"#include <stdint.h>\n"
-		"\n"
-		"\n"
-		);
+    print_enum();
+    printf("\n");
+    print_table();
 
-	print_enum();
-	printf("\n");
-	print_table(flags, names);
-
-	printf(
-		"\n"
-		"\n"
-		"#ifdef __cplusplus\n"
-		"}\n"
-		"#endif\n"
-		"#endif // character_flags_H\n"
-		);
+    printf(
+        "\n"
+        "\n"
+        "#ifdef __cplusplus\n"
+        "}\n"
+        "#endif\n"
+        "#endif // ks_character_flags_H\n"
+        );
 }

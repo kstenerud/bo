@@ -80,27 +80,27 @@ static bool verify_data_width(bo_context* context, bo_data_type data_type, int w
 
 static inline bool is_octal_character(int ch)
 {
-    return g_character_flags[ch] & CHARACTER_FLAG_BASE_8;
+    return g_character_flags[ch] & CH_FLAG_BASE_8;
 }
 
 static inline bool is_decimal_character(int ch)
 {
-    return g_character_flags[ch] & CHARACTER_FLAG_BASE_10;
+    return g_character_flags[ch] & CH_FLAG_BASE_10;
 }
 
 static inline bool is_hex_character(int ch)
 {
-    return g_character_flags[ch] & CHARACTER_FLAG_BASE_16;
+    return g_character_flags[ch] & CH_FLAG_BASE_16;
 }
 
 static inline bool is_numeric_character(int ch)
 {
-    return g_character_flags[ch] & CHARACTER_FLAG_NUMBER;
+    return g_character_flags[ch] & (CH_FLAG_FP_NUMBER | CH_FLAG_BASE_16);
 }
 
 static inline bool is_whitespace_character(int ch)
 {
-    return g_character_flags[ch] & CHARACTER_FLAG_WHITESPACE;
+    return g_character_flags[ch] & CH_FLAG_WHITESPACE;
 }
 
 static inline bool is_at_end_of_input(bo_context* context)
