@@ -101,7 +101,7 @@ static void print_usage()
 	printf("\n%s", g_usage);
 }
 
-static void on_error(void* user_data, const char* message)
+static void on_error(__attribute__ ((unused)) void* user_data, const char* message)
 {
 	if(message == NULL || *message == 0)
 	{
@@ -234,7 +234,10 @@ int main(int argc, char* argv[])
 	int in_file_count = 0;
 	FILE* out_stream = stdout;
 	bool should_print_newline = false;
-	int opt;
+	bool has_args = false;
+	bool is_flush_successful = false;
+
+	int opt = 0;
     while((opt = getopt (argc, argv, "i:o:hnv")) != -1)
     {
     	switch(opt)
@@ -267,7 +270,7 @@ int main(int argc, char* argv[])
 				goto failed;
       	}
 	}
-	bool has_args = optind < argc;
+	has_args = optind < argc;
 
 	if(!has_args && in_file_count == 0)
 	{
@@ -296,7 +299,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	bool is_flush_successful = bo_flush_and_destroy_context(context);
+	is_flush_successful = bo_flush_and_destroy_context(context);
 	context = NULL;
 
 	if(!is_flush_successful)
