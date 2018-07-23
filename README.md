@@ -176,8 +176,8 @@ Usage
 
 ### Options
 
-  * -i [filename]: Read commands/data from a file.
-  * -o [filename]: Write output to a file.
+  * -i [filename]: Read commands/data from a file (specifying "-" uses stdin).
+  * -o [filename]: Write output to a file (specifying "-" uses stdout).
   * -n Write a newline after processing is complete.
   * -h Print help and exit.
   * -v Print version and exit.
