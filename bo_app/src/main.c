@@ -27,9 +27,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <bo/bo.h>
+#include "bo_version.h"
 
 
-static const char* g_version = "1.0.1";
+#define STRINGIZE_PARAM_(arg) #arg
+#define STRINGIZE_PARAM(arg) STRINGIZE_PARAM_(arg)
+
+static const char* g_version = STRINGIZE_PARAM(BO_VERSION);
 
 static const char g_usage[] =
 	"Usage: bo [options] command [command] ...\n"

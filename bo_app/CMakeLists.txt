@@ -18,4 +18,7 @@ target_compile_options(bo PRIVATE $<$<C_COMPILER_ID:GNU>:
     -Wformat=2
 >)
 
+configure_file(src/bo_version.h.in bo_version.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
 target_link_libraries(bo libbo)
