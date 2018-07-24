@@ -1,4 +1,4 @@
-project(libo VERSION 1.0.0 LANGUAGES C)
+project(libbo VERSION 1.0.1 LANGUAGES C)
 
 add_library(libbo
     src/library.c

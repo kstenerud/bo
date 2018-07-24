@@ -29,7 +29,7 @@
 #include <bo/bo.h>
 
 
-static const char* g_version = "1.0.0";
+static const char* g_version = "1.0.1";
 
 static const char g_usage[] =
 	"Usage: bo [options] command [command] ...\n"
