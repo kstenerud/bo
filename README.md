@@ -38,7 +38,7 @@ This is a short introduction to understand the examples. See the `Commands` sect
   * P{type}: Set the prefix and suffix from a preset ("s" for space separators, and "c" for C-style separators).
   * "a string": Add a string value.
 
-The values i, o, P, and " are used to initiate commands. If bo doesn't recognize a command initiator, it will attempt to interpret numeric data.
+The values i, o, P, and "a string" are used to initiate commands. If bo doesn't recognize a command initiator, it will attempt to interpret numeric data.
 
 #### Input and output type commands consist of multiple fields:
 
